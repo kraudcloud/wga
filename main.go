@@ -11,6 +11,7 @@ import (
 
 func main() {
 	wgUp()
+	nftUp()
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -22,13 +23,17 @@ func main() {
 		panic(err)
 	}
 
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		if err := wgSync(); err != nil {
 			slog.Error(err.Error())
 			wgUp()
 		}
+		nftUp()
 		select {
-		case <-time.After(30 * time.Second):
+		case <-ticker.C:
 			slog.Info("Syncing due to timer")
 		case _, ok := <-watcher.Events:
 			if !ok {
@@ -79,4 +84,14 @@ func wgUp() {
 	if err != nil {
 		slog.Error("wg-quick up wg", "err", err)
 	}
+}
+
+func nftUp() {
+	cmd := exec.Command("nft", "-f", "/etc/wireguard/nftables.conf")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		slog.Error("nft -f /etc/wireguard/nftables.conf", "err", err)
+	}
+
 }
