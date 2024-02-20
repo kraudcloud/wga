@@ -8,7 +8,7 @@ RUN go build -o /go/bin/app
 
 FROM alpine:3
 
-RUN apk --no-cache add wireguard-tools-wg-quick
+RUN apk --no-cache add wireguard-tools-wg-quick nftables
 
 WORKDIR /root/
 
