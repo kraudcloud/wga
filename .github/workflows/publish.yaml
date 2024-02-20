@@ -1,5 +1,5 @@
 name: publish
-on: [push]
+on: [release]
 jobs:
   publish-image:
     runs-on: ubuntu-latest
@@ -16,18 +16,24 @@ jobs:
       
       - name: Build image
         run: |
-          docker build . --tag ghcr.io/kraudcloud/wga:latest
-          docker push ghcr.io/kraudcloud/wga:latest
+          docker build . --tag ghcr.io/kraudcloud/wga:${{github.ref_name}}
+          docker push ghcr.io/kraudcloud/wga:${{github.ref_name}}
 
       - name: Install helm
         uses: azure/setup-helm@v3
+
+
+      - name: inject build tag into helm
+        run: |
+          sed -i 's/version: "latest"/version: "${{github.ref_name}}"/' charts/wga/values.yaml
+          sed -i 's/appVersion: "latest"/appVersion: "${{github.ref_name}}"/' charts/wga/Chart.yaml
 
       - name: Chart | Push
         uses: appany/helm-oci-chart-releaser@v0.3.0
         with:
           name: wga
           repository: kraudcloud
-          tag: 0.1.0-chart
+          tag: ${{github.ref_name}}-chart
           path: charts/wga
           registry: ghcr.io
           registry_username: ${{ github.actor }}

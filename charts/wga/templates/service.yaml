@@ -1,15 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "wga.fullname" . }}
-  labels:
-    {{- include "wga.labels" . | nindent 4 }}
+  name: wg
+  annotations:
+    {{.Values.service.annotations | toYaml | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
-      protocol: TCP
-      name: http
+  - port: {{. Values.port }}
+    protocol: UDP
+    targetPort: {{. Values.port }}
   selector:
-    {{- include "wga.selectorLabels" . | nindent 4 }}
+    app: wireguard
