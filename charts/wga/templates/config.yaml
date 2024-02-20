@@ -1,0 +1,7 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: config
+data:
+  wg.conf : {{ .Values.config | b64enc }}
