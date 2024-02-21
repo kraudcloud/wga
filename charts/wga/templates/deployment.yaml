@@ -38,11 +38,11 @@ spec:
                 containerName: wg
                 resource: limits.memory
         securityContext:
+          privileged: true
           capabilities:
             add:
             - NET_ADMIN
             - NET_RAW
-            - SYS_ADMIN
         volumeMounts:
         - mountPath: /etc/wireguard/
           name: config

@@ -6,3 +6,4 @@ metadata:
 data:
   wg.conf : {{ .Values.config | b64enc }}
   nftables.conf: {{.Values.nftables | b64enc }}
+  sysctl.conf: {{.Values.sysctl | b64enc }}

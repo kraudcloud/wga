@@ -12,6 +12,7 @@ import (
 func main() {
 	wgUp()
 	nftUp()
+	sysctl()
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -32,6 +33,7 @@ func main() {
 			wgUp()
 		}
 		nftUp()
+		sysctl()
 		select {
 		case <-ticker.C:
 			slog.Info("Syncing due to timer")
@@ -93,5 +95,13 @@ func nftUp() {
 	if err := cmd.Run(); err != nil {
 		slog.Error("nft -f /etc/wireguard/nftables.conf", "err", err)
 	}
+}
 
+func sysctl() {
+	cmd := exec.Command("sysctl", "-p", "/etc/wireguard/sysctl.conf")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		slog.Error("sysctl -p /etc/wireguard/sysctl.conf", "err", err)
+	}
 }
