@@ -73,6 +73,8 @@ func wgSync() error {
 		return fmt.Errorf("Error running wg syncconf: %v", err)
 	}
 
+	slog.Info("did wg syncconf")
+
 	return nil
 }
 
@@ -86,6 +88,7 @@ func wgUp() {
 	if err != nil {
 		slog.Error("wg-quick up wg", "err", err)
 	}
+	slog.Info("did wg-quick up wg")
 }
 
 func nftUp() {
@@ -95,6 +98,7 @@ func nftUp() {
 	if err := cmd.Run(); err != nil {
 		slog.Error("nft -f /etc/wireguard/nftables.conf", "err", err)
 	}
+	slog.Info("did nft -f /etc/wireguard/nftables.conf")
 }
 
 func sysctl() {
@@ -104,4 +108,5 @@ func sysctl() {
 	if err := cmd.Run(); err != nil {
 		slog.Error("sysctl -p /etc/wireguard/sysctl.conf", "err", err)
 	}
+	slog.Info("did sysctl -p /etc/wireguard/sysctl.conf")
 }
