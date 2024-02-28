@@ -20,6 +20,8 @@ spec:
       - image: ghcr.io/kraudcloud/wga:{{.Values.version }}
         imagePullPolicy: IfNotPresent
         name: wg
+        args:
+          - server
         ports:
         - containerPort: {{ .Values.port }}
           name: wireguard
@@ -44,7 +46,7 @@ spec:
             - NET_ADMIN
             - NET_RAW
         volumeMounts:
-        - mountPath: /etc/wireguard/
+        - mountPath: /etc/wga/
           name: config
       restartPolicy: Always
       volumes:

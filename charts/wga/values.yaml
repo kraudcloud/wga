@@ -8,15 +8,27 @@ port: 51820
 
 version: "latest"
 
-config: |
-  [Interface]
-  Address = 172.27.1.200/24
-  PrivateKey = GF1XfJZLrDuCuvXy9mB6PUkqM19w93S5sWD3wteVYUU=
-  ListenPort = 51820
-  
-  [Peer]
-  PublicKey = mDtPzUAay7AX0Fi76swpy9gpY8TSBknyQ4cX7cP0nXE=
-  AllowedIPs = 172.27.1.11/32
+config:
+
+  print:
+    publicEndpoint: "invalid.com:1234"
+
+  server:
+    privateKey: GF1XfJZLrDuCuvXy9mB6PUkqM19w93S5sWD3wteVYUU=
+    ips:
+      - 172.27.1.200/24
+
+  allPeers:
+    routes:
+      - 172.27.1.200/32
+
+  peers:
+    - name: bob
+      privateKey: eDJvsA3q8a0Byn9hZaOBvrUHGSC1+3rQY7TPUdx7oFM=
+      ips:
+        - 172.27.1.11/32
+      routes:
+        - 1.1.1.1/32
 
 nftables: |
   flush ruleset; #must keep this! reload is atomic.
