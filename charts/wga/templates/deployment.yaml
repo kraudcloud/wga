@@ -11,17 +11,13 @@ spec:
     matchLabels:
       app: wireguard
   template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        app: wireguard
     spec:
       containers:
       - image: ghcr.io/kraudcloud/wga:{{.Values.version }}
         imagePullPolicy: IfNotPresent
         name: wg
         args:
-          - server
+          - ep
         ports:
         - containerPort: {{ .Values.port }}
           name: wireguard
@@ -46,19 +42,22 @@ spec:
             - NET_ADMIN
             - NET_RAW
         volumeMounts:
-        - mountPath: /etc/wga/secrets.yaml
-          name: secrets
-          subPath: secrets.yaml
-        - mountPath: /etc/wga/config.yaml
-          name: config
-          subPath: config.yaml
+        - mountPath: /etc/wga/privateKey
+          name: endpoint
+          subPath: privateKey
+        - mountPath: /etc/wga/endpoint.yaml
+          name: endpoint
+          subPath: endpoint.yaml
+        - mountPath: /etc/wga/run.yaml
+          name: run
+          subPath: run.yaml
       restartPolicy: Always
       volumes:
-      - name: secrets
+      - name: endpoint
         secret:
           defaultMode: 420
-          secretName: secrets
-      - name: config
-        secret:
+          secretName: endpoint
+      - name: run
+        configMap:
           defaultMode: 420
-          secretName: config
+          name: run

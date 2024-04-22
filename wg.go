@@ -13,11 +13,11 @@ import (
 
 const DEVICENAME = "wga"
 
-func wgInit(secret *Secrets) error {
+func wgInit(epConfig *EndpointConfig) error {
 
 	slog.Info("create wg", "interface", DEVICENAME)
 
-	sk, err := wgtypes.ParseKey(secret.PrivateKey)
+	sk, err := wgtypes.ParseKey(PRIVATEKEY)
 	if err != nil {
 		return fmt.Errorf("cannot parse private key: %w", err)
 	}
@@ -65,7 +65,7 @@ func wgInit(secret *Secrets) error {
 		return fmt.Errorf("link up: %w", err)
 	}
 
-	for _, cidr := range secret.Darknet.CIDRs {
+	for _, cidr := range epConfig.Darknet.CIDRs {
 		_, snet, err := net.ParseCIDR(cidr)
 		if err != nil {
 			slog.Error(err.Error(), "darknet.cidr", cidr)

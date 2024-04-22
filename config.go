@@ -20,19 +20,33 @@ type DarknetConfig struct {
 	CIDRs []string `yaml:"cidrs"`
 }
 
-type Secrets struct {
-	PrivateKey string        `yaml:"privateKey"`
-	Darknet    DarknetConfig `yaml:"darknet"`
+type EndpointConfig struct {
+	Darknet DarknetConfig `yaml:"darknet"`
 }
 type Config struct {
 	Peers []PeerConfig `yaml:"peers"`
 }
 
-var LAST_HASH_OF_SECRETS string
+var PRIVATEKEY string
+var LAST_HASH_OF_ENDPOINTYAML string
 
-func LoadConfig() (*Secrets, *Config, error) {
+func LoadConfig() (*EndpointConfig, *Config, error) {
 
-	file, err := os.Open("/etc/wga/secrets.yaml")
+	// --
+
+	prk, err := os.ReadFile("/etc/wga/privateKey")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if PRIVATEKEY != "" && PRIVATEKEY != string(prk) {
+		panic("private key changed, must restart wga ep")
+	}
+	PRIVATEKEY = string(prk)
+
+	// --
+
+	file, err := os.Open("/etc/wga/endpoint.yaml")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -40,20 +54,22 @@ func LoadConfig() (*Secrets, *Config, error) {
 
 	hasher := sha256.New()
 
-	var secrets = &Secrets{}
+	var secrets = &EndpointConfig{}
 	err = yaml.NewDecoder(io.TeeReader(file, hasher)).Decode(secrets)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot read /etc/wga/secrets.yaml: %w", err)
+		return nil, nil, fmt.Errorf("cannot read /etc/wga/endpoint.yaml: %w", err)
 	}
 
 	hash := fmt.Sprintf("%x", hasher.Sum(nil))
-	if LAST_HASH_OF_SECRETS != "" && LAST_HASH_OF_SECRETS != hash {
-		panic("hash of /etc/wga/secrets.yaml changed, must restart wga ep")
+	if LAST_HASH_OF_ENDPOINTYAML != "" && LAST_HASH_OF_ENDPOINTYAML != hash {
+		panic("hash of /etc/wga/endpoint.yaml changed, must restart wga ep")
 	}
-	LAST_HASH_OF_SECRETS = hash
+	LAST_HASH_OF_ENDPOINTYAML = hash
+
+	// --
 
 	var config = &Config{}
-	file, err = os.Open("/etc/wga/config.yaml")
+	file, err = os.Open("/etc/wga/run.yaml")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -61,7 +77,7 @@ func LoadConfig() (*Secrets, *Config, error) {
 
 	err = yaml.NewDecoder(file).Decode(config)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot read /etc/wga/config.yaml: %w", err)
+		return nil, nil, fmt.Errorf("cannot read /etc/wga/run.yaml: %w", err)
 	}
 
 	return secrets, config, nil

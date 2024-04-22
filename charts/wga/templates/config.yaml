@@ -2,14 +2,23 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: secrets
+  name: endpoint
 data:
-  secrets.yaml: |
+  privateKey:     {{ ( include "gen.endpoint.privateKey" . )  }} 
+  endpoint.yaml: |
+{{ .Values.endpoint | toYaml | indent 4 }}
 
+
+
+{{- $runconfig := lookup "v1" "ConfigMap" .Release.Namespace "run" -}}
+{{- if $runconfig -}}
+{{- else -}}
 ---
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
-  name: config
+  name: run
 data:
-  config.yaml: |
+  run.yaml:  |
+    ---
+{{- end -}}
