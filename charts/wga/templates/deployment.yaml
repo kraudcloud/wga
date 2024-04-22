@@ -46,10 +46,18 @@ spec:
             - NET_ADMIN
             - NET_RAW
         volumeMounts:
-        - mountPath: /etc/wga/
+        - mountPath: /etc/wga/secrets.yaml
+          name: secrets
+          subPath: secrets.yaml
+        - mountPath: /etc/wga/config.yaml
           name: config
+          subPath: config.yaml
       restartPolicy: Always
       volumes:
+      - name: secrets
+        secret:
+          defaultMode: 420
+          secretName: secrets
       - name: config
         secret:
           defaultMode: 420

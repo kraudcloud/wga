@@ -7,37 +7,3 @@ service:
 port: 51820
 
 version: "latest"
-
-config:
-
-  print:
-    publicEndpoint: "invalid.com:1234"
-
-  server:
-    privateKey: GF1XfJZLrDuCuvXy9mB6PUkqM19w93S5sWD3wteVYUU=
-    ips:
-      - 172.27.1.200/24
-
-  allPeers:
-    routes:
-      - 172.27.1.200/32
-
-  peers:
-    - name: bob
-      privateKey: eDJvsA3q8a0Byn9hZaOBvrUHGSC1+3rQY7TPUdx7oFM=
-      ips:
-        - 172.27.1.11/32
-      routes:
-        - 1.1.1.1/32
-
-nftables: |
-  flush ruleset; #must keep this! reload is atomic.
-  table inet nat {
-    chain postrouting {
-      type nat hook postrouting priority 100; policy accept;
-      oifname eth0 masquerade;
-    }
-  }
-sysctl: |
-  net.ipv4.ip_forward=1
-  net.ipv6.conf.all.forwarding=1
