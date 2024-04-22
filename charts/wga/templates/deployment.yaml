@@ -21,7 +21,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: wg
         args:
-          - server
+          - ep
         ports:
         - containerPort: {{ .Values.port }}
           name: wireguard
@@ -46,19 +46,22 @@ spec:
             - NET_ADMIN
             - NET_RAW
         volumeMounts:
-        - mountPath: /etc/wga/secrets.yaml
+        - mountPath: /etc/wga/privateKey
           name: secrets
-          subPath: secrets.yaml
-        - mountPath: /etc/wga/config.yaml
+          subPath: privateKey
+        - mountPath: /etc/wga/static.yaml
           name: config
-          subPath: config.yaml
+          subPath: static.yaml
+        - mountPath: /etc/wga/peers.yaml
+          name: config
+          subPath: peers.yaml
       restartPolicy: Always
       volumes:
       - name: secrets
         secret:
           defaultMode: 420
-          secretName: secrets
+          secretName: endpoint
       - name: config
-        secret:
+        configMap:
           defaultMode: 420
-          secretName: config
+          name: endpoint

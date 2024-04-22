@@ -29,12 +29,12 @@ func main() {
 
 func epMain() {
 
-	secrets, config, err := LoadConfig()
+	epConfig, config, err := LoadConfig()
 	if err != nil {
 		panic(err)
 	}
 
-	err = wgInit(secrets)
+	err = wgInit(epConfig)
 	if err != nil {
 		panic(err)
 	}

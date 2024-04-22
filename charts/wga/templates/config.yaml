@@ -2,14 +2,16 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: secrets
+  name: endpoint
 data:
-  secrets.yaml: |
-
+  privateKey:     {{ ( include "gen.endpoint.privateKey" . )  | b64enc  }} 
 ---
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
-  name: config
+  name: endpoint
 data:
-  config.yaml: |
+  endpoint.yaml: |
+{{ .Values.endpoint | toYaml | indent 4 }}
+  run.yaml:  |
+{{ ( include "gen.endpoint.peers" . ) | indent 4 }}
