@@ -29,12 +29,12 @@ func main() {
 
 func epMain() {
 
-	secrets, config, err := LoadConfig()
+	epConfig, config, err := LoadConfig()
 	if err != nil {
 		panic(err)
 	}
 
-	err = wgInit(secrets)
+	err = wgInit(epConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +48,12 @@ func epMain() {
 		panic(err)
 	}
 
-	err = watcher.Add("/etc/wga/")
+	err = watcher.Add("/etc/wga/endpoint/")
+	if err != nil {
+		panic(err)
+	}
+
+	err = watcher.Add("/etc/wga/run/")
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +67,6 @@ func epMain() {
 		if err != nil {
 			slog.Error(err.Error())
 		} else {
-
 			wgSync(config)
 			nftSync(config)
 			sysctl(config)

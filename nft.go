@@ -45,7 +45,7 @@ func nftSync(config *Config) {
 	for _, peer := range config.Peers {
 
 		_, snet, err := net.ParseCIDR(peer.Source)
-		for err != nil {
+		if err != nil {
 			slog.Error(err.Error(), "source", peer.Source, "peer", peer.Name)
 			continue
 		}
@@ -58,7 +58,7 @@ func nftSync(config *Config) {
 				continue
 			}
 
-			comment := strip(snet.String() + dnet.String())
+			comment := "r" + strip(snet.String()+dnet.String())
 
 			exists := false
 			for ud := range ruleMap {
@@ -159,19 +159,3 @@ func checkOrCreateWGAIngressChain(nft *nftables.Conn, table *nftables.Table, dev
 	return nil, nil
 
 }
-
-/*
-
-func nftSync() {
-	cmd := exec.Command("nft", "-f", "/etc/wga/nftables.conf")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		slog.Error("nft -f /etc/wga/nftables.conf", "err", err)
-	}
-	slog.Info("did nft -f /etc/wga/nftables.conf")
-}
-
-func sysctl() {
-
-*/
