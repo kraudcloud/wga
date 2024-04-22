@@ -2,14 +2,9 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: secrets
-data:
-  secrets.yaml: |
+  name: endpoint
+stringData:
+  privateKey:     {{ ( include "gen.endpoint.privateKey" . )  }} 
+  endpoint.yaml: |
+{{ .Values.endpoint | toYaml | indent 4 }}
 
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: config
-data:
-  config.yaml: |
