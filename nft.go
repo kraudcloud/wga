@@ -159,19 +159,3 @@ func checkOrCreateWGAIngressChain(nft *nftables.Conn, table *nftables.Table, dev
 	return nil, nil
 
 }
-
-/*
-
-func nftSync() {
-	cmd := exec.Command("nft", "-f", "/etc/wga/nftables.conf")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		slog.Error("nft -f /etc/wga/nftables.conf", "err", err)
-	}
-	slog.Info("did nft -f /etc/wga/nftables.conf")
-}
-
-func sysctl() {
-
-*/
