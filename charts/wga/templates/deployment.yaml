@@ -12,7 +12,6 @@ spec:
       app: wireguard
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: wireguard
     spec:
@@ -21,7 +20,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: wg
         args:
-          - server
+          - ep
         ports:
         - containerPort: {{ .Values.port }}
           name: wireguard
@@ -46,19 +45,17 @@ spec:
             - NET_ADMIN
             - NET_RAW
         volumeMounts:
-        - mountPath: /etc/wga/secrets.yaml
-          name: secrets
-          subPath: secrets.yaml
-        - mountPath: /etc/wga/config.yaml
-          name: config
-          subPath: config.yaml
+        - mountPath: /etc/wga/endpoint/
+          name: endpoint
+        - mountPath: /etc/wga/run/
+          name: run
       restartPolicy: Always
       volumes:
-      - name: secrets
+      - name: endpoint
         secret:
           defaultMode: 420
-          secretName: secrets
-      - name: config
-        secret:
+          secretName: endpoint
+      - name: run
+        configMap:
           defaultMode: 420
-          secretName: config
+          name: run
