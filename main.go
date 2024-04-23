@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/fsnotify/fsnotify"
-	"github.com/spf13/cobra"
 	"log/slog"
 	"os"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/cobra"
 )
 
 func main() {
@@ -20,6 +21,15 @@ func main() {
 		},
 	}
 	rootCmd.AddCommand(serverCmd)
+
+	daemonCmd := &cobra.Command{
+		Use:   "crd",
+		Short: "run crd",
+		Run: func(cmd *cobra.Command, args []string) {
+			crdMain()
+		},
+	}
+	rootCmd.AddCommand(daemonCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		slog.Error(err.Error())
