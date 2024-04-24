@@ -2,6 +2,50 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  name: wireguardaccessendpoints.wga.kraudcloud.com
+spec:
+  group: wga.kraudcloud.com
+  versions:
+    - name: v1beta
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              properties:
+                clientCIDR:
+                  type: string
+                  description: client ip range
+                address:
+                  type: string
+                  description: public endpoint address
+              required:
+                - clientCIDR
+                - address
+                - privateKey
+            status:
+              type: object
+              properties:
+                pub:
+                  type: string
+                  description: public key of the endpoint
+  scope: Namespaced
+  names:
+    plural: wireguardaccessendpoints
+    singular: wireguardaccessendpoint
+    kind: WireguardAccessEndpoint
+    shortNames:
+      - wgaep
+      - wgaeps
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
   name: wireguardaccessrules.wga.kraudcloud.com
 spec:
   group: wga.kraudcloud.com
@@ -25,7 +69,7 @@ spec:
                 - destinations
           required:
             - spec
-  scope: Cluster
+  scope: Namespaced
   names:
     plural: wireguardaccessrules
     singular: wireguardaccessrule
@@ -75,7 +119,7 @@ spec:
                 - rules
           required:
             - spec
-  scope: Cluster
+  scope: Namespaced
   names:
     plural: wireguardaccesspeers
     singular: wireguardaccesspeer

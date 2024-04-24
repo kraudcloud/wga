@@ -47,15 +47,9 @@ spec:
         volumeMounts:
         - mountPath: /etc/wga/endpoint/
           name: endpoint
-        - mountPath: /etc/wga/run/
-          name: run
       restartPolicy: Always
       volumes:
       - name: endpoint
         secret:
           defaultMode: 420
           secretName: endpoint
-      - name: run
-        configMap:
-          defaultMode: 420
-          name: run
