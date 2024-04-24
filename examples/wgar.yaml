@@ -1,0 +1,7 @@
+apiVersion: wga.kraudcloud.com/v1beta
+kind: WireguardAccessRule
+metadata:
+  name: admin
+spec:
+  destinations:
+    - "0::/0"

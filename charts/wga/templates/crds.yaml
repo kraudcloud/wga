@@ -1,0 +1,85 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: wireguardaccessrules.wga.kraudcloud.com
+spec:
+  group: wga.kraudcloud.com
+  versions:
+    - name: v1beta
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                destinations:
+                  type: array
+                  items:
+                    type: string
+                  description: List of destination IP addresses or CIDRs
+              required:
+                - destinations
+          required:
+            - spec
+  scope: Cluster
+  names:
+    plural: wireguardaccessrules
+    singular: wireguardaccessrule
+    kind: WireguardAccessRule
+    shortNames:
+      - wgar
+      - wgars
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: wireguardaccesspeers.wga.kraudcloud.com
+spec:
+  group: wga.kraudcloud.com
+  versions:
+    - name: v1beta
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                index:
+                  type: integer
+                  minimum: 0
+                  maximum: 281474976710656
+                  description: Index of the peer in the endpoint.yaml file. 48 bit number ( 32 time + 16 rand )
+                psk:
+                  type: string
+                  pattern: ^[A-Za-z0-9+/=]+$
+                  description: Pre-shared key
+                pub:
+                  type: string
+                  pattern: ^[A-Za-z0-9+/=]+$
+                  description: Public key
+                rules:
+                  type: array
+                  items:
+                    type: string
+                  description: List of access rules
+              required:
+                - index
+                - pub
+                - rules
+          required:
+            - spec
+  scope: Cluster
+  names:
+    plural: wireguardaccesspeers
+    singular: wireguardaccesspeer
+    kind: WireguardAccessPeer
+    shortNames:
+      - wgap
+      - wgaps

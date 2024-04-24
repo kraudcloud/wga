@@ -1,0 +1,10 @@
+apiVersion: wga.kraudcloud.com/v1beta
+kind: WireguardAccessPeer
+metadata:
+  name: kar
+spec:
+  index: 76934188409343
+  pub: MfNMMh5/7upwXOM6nvykD/A+X73CxhxgR60SnkUSyVk=
+  psk: xYBfU+Vb63Yfk8OIjgtvOKyKx7Z3bgleQB6BTAl09pY=
+  rules:
+    - "admin"
