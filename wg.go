@@ -3,21 +3,22 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/apparentlymart/go-cidr/cidr"
-	"github.com/vishvananda/netlink"
-	"golang.zx2c4.com/wireguard/wgctrl"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"log/slog"
 	"net"
 	"os"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
+
+	"github.com/apparentlymart/go-cidr/cidr"
+	"github.com/vishvananda/netlink"
+	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 const DEVICENAME = "wga"
 
-var DID_WG_INIT atomic.Bool
+var WGInitOnce = sync.Once{}
 
 func wgInit(config *Config) error {
 
@@ -96,12 +97,11 @@ func wgInit(config *Config) error {
 }
 
 func wgSync(config *Config) error {
-
-	if DID_WG_INIT.CompareAndSwap(false, true) {
+	WGInitOnce.Do(func() {
 		if err := wgInit(config); err != nil {
 			panic(err)
 		}
-	}
+	})
 
 	slog.Info("sync wg", "interface", DEVICENAME)
 

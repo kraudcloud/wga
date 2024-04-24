@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync/atomic"
+	"sync"
 
 	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/google/nftables"
@@ -16,7 +16,7 @@ func sysctl(config *Config) {
 	exec.Command("sysctl", "-w", "net.ipv6.conf.all.forwarding=1").Run()
 }
 
-var DID_NFT_INIT atomic.Bool
+var NFTInitOnce = sync.Once{}
 
 func nftInit() {
 	exec.Command("nft", "add", "table", "inet", "filter").Run()
@@ -25,10 +25,7 @@ func nftInit() {
 }
 
 func nftSync(config *Config) {
-
-	if !DID_NFT_INIT.CompareAndSwap(false, true) {
-		nftInit()
-	}
+	NFTInitOnce.Do(nftInit)
 
 	var ruleNameToDestinations = make(map[string][]net.IPNet)
 	for _, rr := range config.Rules {
