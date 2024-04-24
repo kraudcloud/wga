@@ -3,21 +3,32 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"log/slog"
 	"net"
+	"os"
+	"strings"
+	"sync/atomic"
 	"time"
 )
 
 const DEVICENAME = "wga"
 
-func wgInit(epConfig *EndpointConfig) error {
+var DID_WG_INIT atomic.Bool
+
+func wgInit(config *Config) error {
 
 	slog.Info("create wg", "interface", DEVICENAME)
 
-	sk, err := wgtypes.ParseKey(PRIVATEKEY)
+	pkstr, err := os.ReadFile("/etc/wga/endpoint/privateKey")
+	if err != nil {
+		return fmt.Errorf("cannot read private key from /etc/wga/endpoint/privateKey: %w", err)
+	}
+
+	sk, err := wgtypes.ParseKey(strings.TrimSpace(string(pkstr)))
 	if err != nil {
 		return fmt.Errorf("cannot parse private key: %w", err)
 	}
@@ -65,22 +76,20 @@ func wgInit(epConfig *EndpointConfig) error {
 		return fmt.Errorf("link up: %w", err)
 	}
 
-	for _, cidr := range epConfig.Darknet.CIDRs {
-		_, snet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			slog.Error(err.Error(), "darknet.cidr", cidr)
-			continue
-		}
+	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
+	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
+	if err != nil {
+		slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
+		panic(err)
+	}
 
-		err = netlink.RouteAdd(&netlink.Route{
-			LinkIndex: link.Attrs().Index,
-			Dst:       snet,
-		})
+	err = netlink.RouteAdd(&netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Dst:       clientCIDR,
+	})
 
-		if err != nil {
-			slog.Error(err.Error(), "darknet.cidr", cidr)
-			continue
-		}
+	if err != nil {
+		return fmt.Errorf("cannot add route: %w", err)
 	}
 
 	return nil
@@ -88,31 +97,48 @@ func wgInit(epConfig *EndpointConfig) error {
 
 func wgSync(config *Config) error {
 
+	if DID_WG_INIT.CompareAndSwap(false, true) {
+		if err := wgInit(config); err != nil {
+			panic(err)
+		}
+	}
+
 	slog.Info("sync wg", "interface", DEVICENAME)
 
 	var err error
+
+	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
+	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
+	if err != nil {
+		slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
+		panic(err)
+	}
 
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
 
 	for _, peer := range config.Peers {
 
-		slog.Info("  sync ", "peer", peer.Name)
+		slog.Info("  sync ", "peer", peer.Metadata.Name)
 
-		_, snet, err := net.ParseCIDR(peer.Source)
+		sip, err := cidr.Host(clientCIDR, peer.Spec.Index)
 		if err != nil {
-			slog.Error(err.Error(), "source", peer.Source, "peer", peer.Name)
+			slog.Error(err.Error(), "peer", peer.Metadata.Name)
+		}
+
+		snet := net.IPNet{
+			IP:   sip,
+			Mask: net.CIDRMask(128, 128),
+		}
+
+		psk, err := wgtypes.ParseKey(peer.Spec.PSK)
+		if err != nil {
+			slog.Error(err.Error(), "presharedKey", "<recacted>", "peer", peer.Metadata.Name)
 			continue
 		}
 
-		psk, err := wgtypes.ParseKey(peer.PSK)
+		pub, err := wgtypes.ParseKey(peer.Spec.PublicKey)
 		if err != nil {
-			slog.Error(err.Error(), "presharedKey", "<recacted>", "peer", peer.Name)
-			continue
-		}
-
-		pub, err := wgtypes.ParseKey(peer.PublicKey)
-		if err != nil {
-			slog.Error(err.Error(), "publicKey", peer.PublicKey, "peer", peer.Name)
+			slog.Error(err.Error(), "publicKey", peer.Spec.PublicKey, "peer", peer.Metadata.Name)
 			continue
 		}
 
@@ -123,7 +149,7 @@ func wgSync(config *Config) error {
 			ReplaceAllowedIPs:           true,
 			PresharedKey:                &psk,
 			PublicKey:                   pub,
-			AllowedIPs:                  []net.IPNet{*snet},
+			AllowedIPs:                  []net.IPNet{snet},
 		}
 
 		shouldPeers[pub.String()] = pc

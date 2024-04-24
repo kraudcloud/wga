@@ -6,9 +6,7 @@ service:
 
 port: 51820
 
-version: "0.3.16"
-endpoint:
-  darknet:
-    clientCIDRs:
-      - 2a0e:6f07::/80
+version: "0.3.21"
 
+endpoint:
+  clientCIDR: fdfd::/16

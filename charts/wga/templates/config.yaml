@@ -5,6 +5,5 @@ metadata:
   name: endpoint
 stringData:
   privateKey:     {{ ( include "gen.endpoint.privateKey" . )  }} 
-  endpoint.yaml: |
-{{ .Values.endpoint | toYaml | indent 4 }}
+---
 
