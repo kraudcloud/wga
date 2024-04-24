@@ -74,20 +74,20 @@ func epMain() {
 		os.Exit(1)
 	}
 
-	gvr2 := schema.GroupVersionResource{
+	wgaPeers := schema.GroupVersionResource{
 		Group:    "wga.kraudcloud.com",
 		Version:  "v1beta",
 		Resource: "wireguardaccesspeers",
 	}
 
-	gvr3 := schema.GroupVersionResource{
+	wgaRules := schema.GroupVersionResource{
 		Group:    "wga.kraudcloud.com",
 		Version:  "v1beta",
-		Resource: "wireguardaccesspeers",
+		Resource: "wireguardaccessrules",
 	}
 
 	handler := func() {
-		cfg, err := Fetch(clientset, clientSetK, gvr2, gvr3)
+		cfg, err := Fetch(clientset, clientSetK, wgaPeers, wgaRules)
 		if err != nil {
 			slog.Error("Error fetching CRDs", "error", err)
 		}
@@ -97,8 +97,8 @@ func epMain() {
 		sysctl(cfg)
 	}
 
-	go watchCR(clientset, gvr2, handler)
-	go watchCR(clientset, gvr3, handler)
+	go watchCR(clientset, wgaPeers, handler)
+	go watchCR(clientset, wgaRules, handler)
 
 	// Wait for termination signal
 	signalChan := make(chan os.Signal, 1)
@@ -108,9 +108,9 @@ func epMain() {
 	slog.Info("Received termination signal. Exiting.")
 }
 
-func Fetch(clientset dynamic.Interface, clientSetK kubernetes.Interface, gvr2, gvr3 schema.GroupVersionResource) (*Config, error) {
+func Fetch(clientset dynamic.Interface, clientSetK kubernetes.Interface, wgaPeers, wgaRules schema.GroupVersionResource) (*Config, error) {
 
-	wgap, err := clientset.Resource(gvr2).List(context.TODO(), metav1.ListOptions{})
+	wgap, err := clientset.Resource(wgaPeers).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func Fetch(clientset dynamic.Interface, clientSetK kubernetes.Interface, gvr2, g
 
 	}
 
-	wgar, err := clientset.Resource(gvr3).List(context.TODO(), metav1.ListOptions{})
+	wgar, err := clientset.Resource(wgaRules).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

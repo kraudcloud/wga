@@ -10,3 +10,7 @@ version: "0.3.21"
 
 endpoint:
   clientCIDR: fdfd::/16
+
+serviceAccount:
+  create: true
+  name:
