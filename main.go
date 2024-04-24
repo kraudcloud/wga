@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
 	"log/slog"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 func main() {
@@ -18,6 +19,7 @@ func main() {
 		},
 	}
 	rootCmd.AddCommand(serverCmd)
+	rootCmd.AddCommand(peerCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		slog.Error(err.Error())
