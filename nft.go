@@ -1,14 +1,15 @@
 package main
 
 import (
-	"github.com/apparentlymart/go-cidr/cidr"
-	"github.com/google/nftables"
 	"log/slog"
 	"net"
 	"os"
 	"os/exec"
 	"strings"
 	"sync/atomic"
+
+	"github.com/apparentlymart/go-cidr/cidr"
+	"github.com/google/nftables"
 )
 
 func sysctl(config *Config) {
@@ -157,7 +158,7 @@ func checkOrCreateTable(nft *nftables.Conn) (*nftables.Table, error) {
 	return nft.AddTable(&nftables.Table{
 		Family: nftables.TableFamilyNetdev,
 		Name:   "wga",
-	}), nil
+	}), nft.Flush()
 }
 
 func checkOrCreateWGAIngressChain(nft *nftables.Conn, table *nftables.Table, device string) (
@@ -174,7 +175,7 @@ func checkOrCreateWGAIngressChain(nft *nftables.Conn, table *nftables.Table, dev
 		}
 	}
 
-	cmd := exec.Command("nft", "add", "chain", "netdev", "wga", device, "{ type filter hook ingress device "+device+" priority 0 ; policy drop; }")
+	cmd := exec.Command("nft", "add", "chain", "netdev", DEVICENAME, device, "{ type filter hook ingress device "+device+" priority 0 ; policy drop; }")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()

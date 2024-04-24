@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -55,8 +56,7 @@ type WireguardAccessPeer struct {
 }
 
 func epMain() {
-
-	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
+	config, err := clientConfig()
 	if err != nil {
 		slog.Error("Error building Kubernetes config", "error", err)
 		os.Exit(1)
@@ -197,4 +197,16 @@ func watchCR(clientset dynamic.Interface, gvr schema.GroupVersionResource, handl
 
 		handler()
 	}
+}
+
+// clientConfig loads the config either from kubeconfig or falls back to the cluster
+// the k8s client has a similar function but it logs stuff when trying to fallback.
+func clientConfig() (*rest.Config, error) {
+	if kubeconfig := os.Getenv("KUBECONFIG"); kubeconfig != "" {
+		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}, &clientcmd.ConfigOverrides{},
+		).ClientConfig()
+	}
+
+	return rest.InClusterConfig()
 }
