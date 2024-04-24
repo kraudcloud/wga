@@ -1,26 +1,48 @@
 package main
 
 import (
-	"os"
-	"os/exec"
-
+	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/google/nftables"
 	"log/slog"
 	"net"
+	"os"
+	"os/exec"
 	"strings"
+	"sync/atomic"
 )
 
 func sysctl(config *Config) {
 	exec.Command("sysctl", "-w", "net.ipv6.conf.all.forwarding=1").Run()
 }
 
-func nftInit(config *Config) {
+var DID_NFT_INIT atomic.Bool
+
+func nftInit() {
 	exec.Command("nft", "add", "table", "inet", "filter").Run()
 	exec.Command("nft", "add", "chain", "inet", "filter", "postrouting", "{ type nat hook postrouting priority 100 ; }").Run()
 	exec.Command("nft", "add", "rule", "inet", "filter", "postrouting", "oifname", "eth0", "masquerade").Run()
 }
 
 func nftSync(config *Config) {
+
+	if !DID_NFT_INIT.CompareAndSwap(false, true) {
+		nftInit()
+	}
+
+	var ruleNameToDestinations = make(map[string][]net.IPNet)
+	for _, rr := range config.Rules {
+
+		nets := []net.IPNet{}
+		for _, d := range rr.Spec.Destinations {
+			_, ipnet, err := net.ParseCIDR(d)
+			if err != nil {
+				slog.Error(err.Error())
+				continue
+			}
+			nets = append(nets, *ipnet)
+		}
+		ruleNameToDestinations[rr.Metadata.Name] = nets
+	}
 
 	nft, err := nftables.New()
 	if err != nil {
@@ -48,45 +70,54 @@ func nftSync(config *Config) {
 		ruleMap[string(r.UserData)] = r
 	}
 
+	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
+
+	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
+	if err != nil {
+		slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
+		return
+	}
+
 	for _, peer := range config.Peers {
 
-		_, snet, err := net.ParseCIDR(peer.Source)
+		sip, err := cidr.Host(clientCIDR, peer.Spec.Index)
 		if err != nil {
-			slog.Error(err.Error(), "source", peer.Source, "peer", peer.Name)
-			continue
+			slog.Error(err.Error(), "peer", peer.Metadata.Name)
 		}
 
-		for _, addr := range peer.Destinations {
+		snet := net.IPNet{
+			IP:   sip,
+			Mask: net.CIDRMask(128, 128),
+		}
 
-			_, dnet, err := net.ParseCIDR(addr)
-			if err != nil {
-				slog.Error(err.Error(), "destination", addr, "peer", peer.Name)
-				continue
-			}
+		for _, name := range peer.Spec.Rules {
 
-			comment := "r" + strip(snet.String()+dnet.String())
+			for _, dnet := range ruleNameToDestinations[name] {
 
-			exists := false
-			for ud := range ruleMap {
-				if strings.Contains(ud, comment) {
-					delete(ruleMap, ud)
-					exists = true
+				comment := "r" + strip(snet.String()+dnet.String())
+
+				exists := false
+				for ud := range ruleMap {
+					if strings.Contains(ud, comment) {
+						delete(ruleMap, ud)
+						exists = true
+					}
 				}
-			}
-			if exists {
-				continue
-			}
+				if exists {
+					continue
+				}
 
-			cmd := exec.Command("nft", "add", "rule", "netdev", "wga", DEVICENAME,
-				"ip6", "saddr", snet.String(),
-				"ip6", "daddr", dnet.String(),
-				"counter", "accept", "comment", comment)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Run()
-			if err != nil {
-				slog.Error(err.Error(), "destination", addr, "peer", peer.Name)
-				continue
+				cmd := exec.Command("nft", "add", "rule", "netdev", "wga", DEVICENAME,
+					"ip6", "saddr", snet.String(),
+					"ip6", "daddr", dnet.String(),
+					"counter", "accept", "comment", comment)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				err = cmd.Run()
+				if err != nil {
+					slog.Error(err.Error(), "destination", dnet.String(), "peer", peer.Metadata.Name)
+					continue
+				}
 			}
 
 		}
