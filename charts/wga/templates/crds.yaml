@@ -25,6 +25,11 @@ spec:
                 - destinations
           required:
             - spec
+      additionalPrinterColumns:
+        - name: Destinations
+          type: string
+          description: List of destination IP addresses or CIDRs
+          jsonPath: .spec.destinations
   scope: Cluster
   names:
     plural: wireguardaccessrules
@@ -51,30 +56,72 @@ spec:
             spec:
               type: object
               properties:
-                index:
-                  type: integer
-                  minimum: 0
-                  maximum: 281474976710656
-                  description: Index of the peer in the endpoint.yaml file. 48 bit number ( 32 time + 16 rand )
-                psk:
+                preSharedKey:
                   type: string
                   pattern: ^[A-Za-z0-9+/=]+$
                   description: Pre-shared key
-                pub:
+                publicKey:
                   type: string
                   pattern: ^[A-Za-z0-9+/=]+$
                   description: Public key
-                rules:
+                accessRules:
                   type: array
                   items:
                     type: string
-                  description: List of access rules
+                  description: List of access roles
               required:
-                - index
-                - pub
-                - rules
+                - publicKey
+                - accessRules
+            status:
+              type: object
+              properties:
+                lastUpdated:
+                  type: string
+                  description: Last update time
+                  format: date-time
+                address:
+                  type: string
+                  description: Address of the "client" peer
+                peers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      endpoint:
+                        type: string
+                        description: Endpoint of the "server" peer
+                      preSharedKey:
+                        type: string
+                        description: Pre-shared key
+                        pattern: ^[A-Za-z0-9+/=]+$
+                      publicKey:
+                        type: string
+                        description: Public key
+                        pattern: ^[A-Za-z0-9+/=]+$
+                      allowedIPs:
+                        type: array
+                        items:
+                          type: string
+                          description: Allowed IP addresses or CIDRs
+                    required:
+                      - endpoint
+                      - publicKey
+                      - allowedIPs
+              required:
+                - lastUpdated
+                - address
+                - peers
           required:
             - spec
+      additionalPrinterColumns:
+        - name: Address
+          type: string
+          description: Address of the "client" peer
+          jsonPath: .status.address
+        - name: "Last Updated"
+          type: string
+          description: Last update time
+          jsonPath: .status.lastUpdated
   scope: Cluster
   names:
     plural: wireguardaccesspeers

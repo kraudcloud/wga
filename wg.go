@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"net"
@@ -11,6 +14,7 @@ import (
 	"time"
 
 	"github.com/apparentlymart/go-cidr/cidr"
+	"github.com/kraudcloud/wga/wgav1beta"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -96,7 +100,7 @@ func wgInit(config *Config) error {
 	return nil
 }
 
-func wgSync(config *Config) error {
+func wgSync(config *Config, client *wgav1beta.Client) error {
 	WGInitOnce.Do(func() {
 		if err := wgInit(config); err != nil {
 			panic(err)
@@ -105,34 +109,60 @@ func wgSync(config *Config) error {
 
 	slog.Info("sync wg", "interface", DEVICENAME)
 
-	var err error
-
 	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
 	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
 	if err != nil {
 		slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
-		panic(err)
+		return err
 	}
 
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
-
+	// find out what peers have no `status` and generate their status
+	// this should probably be in the watcher rather than here.
 	for _, peer := range config.Peers {
+		if peer.Status == nil {
+			sip, err := cidr.Host(clientCIDR, int(generateIndex()))
+			if err != nil {
+				slog.Error(err.Error(), "peer", peer.Metadata.Name)
+			}
 
-		slog.Info("  sync ", "peer", peer.Metadata.Name)
+			slog.Info("  init ", "peer", peer.Metadata.Name)
 
-		sip, err := cidr.Host(clientCIDR, peer.Spec.Index)
-		if err != nil {
-			slog.Error(err.Error(), "peer", peer.Metadata.Name)
+			rsp, err := client.PutWireguardAccessPeer(context.Background(), peer.Metadata.Name, wgav1beta.WireguardAccessPeer{
+				TypeMeta: peer.TypeMeta,
+				Metadata: peer.Metadata,
+				Spec:     peer.Spec,
+				Status: &wgav1beta.WireguardAccessPeerStatus{
+					LastUpdated: time.Now().Format(time.RFC3339),
+					Address:     sip.String(),
+					Peers: []wgav1beta.WireguardAccessPeerStatusPeer{
+						{
+							PublicKey:    "SERVER",
+							Endpoint:     "3232235521:12345",
+							PreSharedKey: "SERVERPSK",
+							AllowedIPs: []string{
+								"0::/0",
+							},
+						},
+					},
+				},
+			})
+			peer = *rsp
+			if err != nil {
+				slog.Error(err.Error(), "peer", peer.Metadata.Name)
+			}
 		}
 
+		slog.Info("  sync ", "peer", peer.Metadata.Name, "address", peer.Status.Address)
+
 		snet := net.IPNet{
-			IP:   sip,
+			IP:   net.ParseIP(peer.Status.Address),
 			Mask: net.CIDRMask(128, 128),
 		}
 
-		psk, err := wgtypes.ParseKey(peer.Spec.PSK)
+		psk, err := wgtypes.ParseKey(peer.Spec.PreSharedKey)
 		if err != nil {
-			slog.Error(err.Error(), "presharedKey", "<recacted>", "peer", peer.Metadata.Name)
+			slog.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Metadata.Name)
 			continue
 		}
 
@@ -238,4 +268,20 @@ func wgSync(config *Config) error {
 	}
 
 	return nil
+}
+
+func generateIndex() int {
+	// 32 bits for time, 16 bits for rand
+	index := time.Now().Unix() << 16
+
+	buf := make([]byte, 2)
+	_, err := rand.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+
+	index |= int64(binary.BigEndian.Uint16(buf))
+
+	// cut off unused bits
+	return int(index) & 0xffff
 }
