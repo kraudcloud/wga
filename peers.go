@@ -21,8 +21,6 @@ import (
 
 func peerCmd() *cobra.Command {
 	rules := []string{}
-	serverPrivateKey := ""
-	privateKey := wgtypes.Key{}
 
 	cmd := &cobra.Command{
 		Use:     "peer",
@@ -34,26 +32,8 @@ func peerCmd() *cobra.Command {
 		Use:   "add [name]",
 		Short: "add a WireguardAccessPeer",
 		Args:  cobra.ExactArgs(1),
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if len(serverPrivateKey) == 0 {
-				// try to load from k8s
-				pkstr, err := os.ReadFile("/etc/wga/endpoint/privateKey")
-				if err != nil {
-					return fmt.Errorf("cannot read private key from /etc/wga/endpoint/privateKey: %w", err)
-				}
-				serverPrivateKey = string(pkstr)
-			}
-
-			sk, err := wgtypes.ParseKey(strings.TrimSpace(string(serverPrivateKey)))
-			if err != nil {
-				return fmt.Errorf("cannot parse private key: %w", err)
-			}
-
-			privateKey = sk
-			return nil
-		},
 		Run: func(cmd *cobra.Command, args []string) {
-			err := newPeer(args[0], rules, privateKey)
+			err := newPeer(args[0], rules)
 			if err != nil {
 				slog.Error(err.Error())
 				os.Exit(1)
@@ -62,13 +42,12 @@ func peerCmd() *cobra.Command {
 		Aliases: []string{"new"},
 	}
 	add.Flags().StringSliceVarP(&rules, "rules", "r", rules, "rules to apply to this peer")
-	add.Flags().StringVarP(&serverPrivateKey, "server-private-key", "s", serverPrivateKey, "server private key")
 
 	cmd.AddCommand(add)
 	return cmd
 }
 
-func newPeer(name string, rules []string, serverKey wgtypes.Key) error {
+func newPeer(name string, rules []string) error {
 	keyset, err := wgtypes.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("wgtypes.NewKey: %w", err)
