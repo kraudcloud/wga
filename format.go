@@ -2,72 +2,54 @@ package main
 
 import (
 	"io"
+	"net"
 	"strings"
 	"text/template"
+
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-const WgFile = `{{- if .ConfigName -}}
-# {{.ConfigName }}
+const WgFile = `{{- if .Name -}}
+# {{.Name }}
 {{- end }}
 [Interface]
 PrivateKey = {{ .PrivateKey }}
 Address = {{ .Address }}
-{{- if .ListenPort }}
-ListenPort = {{ .ListenPort }}
-{{- end }}
-{{- if .FirewallMark }}
-FirewallMark = {{ .FirewallMark }}
-{{- end }}
 
 {{- range .Peers }}
 
 [Peer]
 Endpoint = {{ .Endpoint }}
 PublicKey = {{ .PublicKey }}
-{{- if .PresharedKey }}
+{{- if validKey .PresharedKey }}
 PresharedKey = {{ .PresharedKey }}
 {{- end }}
 {{- if .AllowedIPs }}
-AllowedIPs = {{ join .AllowedIPs ", " }}
+AllowedIPs = {{ joinIPs .AllowedIPs ", " }}
 {{- end }}
-{{- if .PersistentKeepalive }}
-PersistentKeepalive = {{ .PersistentKeepalive }}
-{{- end }}
-{{- if .LastHandshakeTime }}
-LastHandshakeTime = {{ .LastHandshakeTime }}
-{{- end }}
-{{- if .ReceiveBytes }}
-ReceiveBytes = {{ .ReceiveBytes }}
-{{- end }}
-{{- if .TransmitBytes }}
-TransmitBytes = {{ .TransmitBytes }}
+{{- if .PersistentKeepaliveInterval }}
+PersistentKeepalive = {{ .PersistentKeepaliveInterval }}
 {{- end }}{{- end }}
 `
 
-type WireguardConfig struct {
-	ConfigName   string                `json:"configName"`
-	PrivateKey   string                `json:"privateKey"`
-	Address      string                `json:"address"`
-	ListenPort   int                   `json:"listenPort"`
-	FirewallMark int32                 `json:"firewallMark"`
-	Peers        []WireguardConfigPeer `json:"peers"`
-}
-
-type WireguardConfigPeer struct {
-	PublicKey           string   `json:"publicKey"`
-	PresharedKey        string   `json:"presharedKey"`
-	AllowedIPs          []string `json:"allowedIPs"`
-	Endpoint            string   `json:"endpoint"`
-	PersistentKeepalive int      `json:"persistentKeepalive"`
-	LastHandshakeTime   string   `json:"lastHandshakeTime"`
-	ReceiveBytes        int64    `json:"receiveBytes"`
-	TransmitBytes       int64    `json:"transmitBytes"`
-}
-
 var wgFileTemplate = template.Must(template.New("wg-file").Funcs(template.FuncMap{
-	"join": strings.Join,
+	"joinIPs": func(ips []net.IPNet, sep string) string {
+		strs := make([]string, 0, len(ips))
+		for _, ip := range ips {
+			strs = append(strs, ip.String())
+		}
+		return strings.Join(strs, sep)
+	},
+	"validKey": func(k wgtypes.Key) bool {
+		return k != wgtypes.Key{}
+	},
 }).Parse(WgFile))
 
-func Format(w io.Writer, wgConfig WireguardConfig) error {
+type ConfigFile struct {
+	Address *net.IPNet
+	wgtypes.Device
+}
+
+func Format(w io.Writer, wgConfig ConfigFile) error {
 	return wgFileTemplate.Execute(w, wgConfig)
 }

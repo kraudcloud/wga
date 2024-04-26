@@ -267,6 +267,7 @@ func wgSync(config *Config, client *wgav1beta.Client) error {
 		return fmt.Errorf("wg.ConfigureDevice: %w", err)
 	}
 
+	slog.Info("configured ", "device", DEVICENAME)
 	return nil
 }
 

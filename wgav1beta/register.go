@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 )
@@ -92,6 +93,32 @@ func (c *Client) ListWireguardAccessRules(ctx context.Context, opts metav1.ListO
 	return result, err
 }
 
+func (c *Client) GetWireguardAccessPeer(ctx context.Context, name string, opts metav1.GetOptions) (*WireguardAccessPeer, error) {
+	result := &WireguardAccessPeer{}
+	err := c.restClient.Get().
+		Resource(WireguardAccessPeerResource).
+		Name(name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Do(ctx).
+		Into(result)
+	return result, err
+}
+
+func (c *Client) CreateWireguardAccessPeer(ctx context.Context, p WireguardAccessPeer) (result *WireguardAccessPeer, err error) {
+	result = &WireguardAccessPeer{}
+	buf, err := json.Marshal(p)
+	if err != nil {
+		return
+	}
+
+	err = c.restClient.Post().
+		Resource(WireguardAccessPeerResource).
+		Body(buf).
+		Do(ctx).
+		Into(result)
+	return
+}
+
 func (c *Client) PutWireguardAccessPeer(ctx context.Context, name string, p WireguardAccessPeer) (result *WireguardAccessPeer, err error) {
 	result = &WireguardAccessPeer{}
 
@@ -107,4 +134,16 @@ func (c *Client) PutWireguardAccessPeer(ctx context.Context, name string, p Wire
 		Do(ctx).
 		Into(result)
 	return
+}
+
+func (c *Client) WatchWireguardAccessPeers(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	opts.TypeMeta = metav1.TypeMeta{
+		Kind:       WireguardAccessPeerKind,
+		APIVersion: SchemeGroupVersion.String(),
+	}
+
+	return c.restClient.Get().
+		Resource(WireguardAccessPeerResource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Watch(ctx)
 }
