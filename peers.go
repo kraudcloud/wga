@@ -21,6 +21,12 @@ import (
 
 func peerCmd() *cobra.Command {
 	rules := []string{}
+	dns := []net.IP{
+		// v4
+		net.ParseIP("1.1.1.1"),
+		// v6
+		net.ParseIP("2606:4700:4700::1111"),
+	}
 
 	cmd := &cobra.Command{
 		Use:     "peer",
@@ -33,7 +39,7 @@ func peerCmd() *cobra.Command {
 		Short: "add a WireguardAccessPeer",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			err := newPeer(args[0], rules)
+			err := newPeer(args[0], rules, dns)
 			if err != nil {
 				slog.Error(err.Error())
 				os.Exit(1)
@@ -47,7 +53,7 @@ func peerCmd() *cobra.Command {
 	return cmd
 }
 
-func newPeer(name string, rules []string) error {
+func newPeer(name string, rules []string, dns []net.IP) error {
 	keyset, err := wgtypes.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("wgtypes.NewKey: %w", err)
@@ -114,10 +120,10 @@ func newPeer(name string, rules []string) error {
 		}
 	}
 
-	return fmtPeer(populatedPeer, keyset, pskset)
+	return fmtPeer(populatedPeer, dns, keyset, pskset)
 }
 
-func fmtPeer(peer wgav1beta.WireguardAccessPeer, pk, psk wgtypes.Key) error {
+func fmtPeer(peer wgav1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key) error {
 	peers := []wgtypes.Peer{}
 	for _, peer := range peer.Status.Peers {
 		publicKey, err := wgtypes.ParseKey(peer.PublicKey)
@@ -164,6 +170,7 @@ func fmtPeer(peer wgav1beta.WireguardAccessPeer, pk, psk wgtypes.Key) error {
 			IP:   ip,
 			Mask: mask(ip),
 		},
+		DNS: dns,
 		Device: wgtypes.Device{
 			Name:       peer.Metadata.Name,
 			PrivateKey: pk,

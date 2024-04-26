@@ -16,6 +16,7 @@ const WgFile = `{{- if .Name -}}
 [Interface]
 PrivateKey = {{ .PrivateKey }}
 Address = {{ .Address }}
+DNS = {{ joinIPs .DNS ", " }}
 
 {{- range .Peers }}
 
@@ -26,7 +27,7 @@ PublicKey = {{ .PublicKey }}
 PresharedKey = {{ .PresharedKey }}
 {{- end }}
 {{- if .AllowedIPs }}
-AllowedIPs = {{ joinIPs .AllowedIPs ", " }}
+AllowedIPs = {{ joinIPNets .AllowedIPs ", " }}
 {{- end }}
 {{- if .PersistentKeepaliveInterval }}
 PersistentKeepalive = {{ seconds .PersistentKeepaliveInterval }}
@@ -34,7 +35,14 @@ PersistentKeepalive = {{ seconds .PersistentKeepaliveInterval }}
 `
 
 var wgFileTemplate = template.Must(template.New("wg-file").Funcs(template.FuncMap{
-	"joinIPs": func(ips []net.IPNet, sep string) string {
+	"joinIPs": func(ips []net.IP, sep string) string {
+		strs := make([]string, 0, len(ips))
+		for _, ip := range ips {
+			strs = append(strs, ip.String())
+		}
+		return strings.Join(strs, sep)
+	},
+	"joinIPNets": func(ips []net.IPNet, sep string) string {
 		strs := make([]string, 0, len(ips))
 		for _, ip := range ips {
 			strs = append(strs, ip.String())
@@ -51,6 +59,7 @@ var wgFileTemplate = template.Must(template.New("wg-file").Funcs(template.FuncMa
 
 type ConfigFile struct {
 	Address *net.IPNet
+	DNS     []net.IP
 	wgtypes.Device
 }
 
