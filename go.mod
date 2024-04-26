@@ -7,7 +7,6 @@ require (
 	github.com/google/nftables v0.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/vishvananda/netlink v1.1.0
-	golang.org/x/crypto v0.21.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.30.0
@@ -31,6 +30,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
+	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect

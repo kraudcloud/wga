@@ -5,6 +5,7 @@ import (
 	"net"
 	"strings"
 	"text/template"
+	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -28,7 +29,7 @@ PresharedKey = {{ .PresharedKey }}
 AllowedIPs = {{ joinIPs .AllowedIPs ", " }}
 {{- end }}
 {{- if .PersistentKeepaliveInterval }}
-PersistentKeepalive = {{ .PersistentKeepaliveInterval }}
+PersistentKeepalive = {{ seconds .PersistentKeepaliveInterval }}
 {{- end }}{{- end }}
 `
 
@@ -42,6 +43,9 @@ var wgFileTemplate = template.Must(template.New("wg-file").Funcs(template.FuncMa
 	},
 	"validKey": func(k wgtypes.Key) bool {
 		return k != wgtypes.Key{}
+	},
+	"seconds": func(d time.Duration) int {
+		return int(d.Seconds())
 	},
 }).Parse(WgFile))
 

@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/kraudcloud/wga/wgav1beta"
 	"github.com/spf13/cobra"
@@ -114,8 +115,12 @@ func newPeer(name string, rules []string) error {
 		break
 	}
 
+	return fmtPeer(populatedPeer, keyset)
+}
+
+func fmtPeer(peer wgav1beta.WireguardAccessPeer, pk wgtypes.Key) error {
 	peers := []wgtypes.Peer{}
-	for _, peer := range populatedPeer.Status.Peers {
+	for _, peer := range peer.Status.Peers {
 		publicKey, err := wgtypes.ParseKey(peer.PublicKey)
 		if err != nil {
 			return fmt.Errorf("cannot parse public key: %w", err)
@@ -145,24 +150,25 @@ func newPeer(name string, rules []string) error {
 		}
 
 		peers = append(peers, wgtypes.Peer{
-			PublicKey:    publicKey,
-			AllowedIPs:   ips,
-			Endpoint:     net.UDPAddrFromAddrPort(endpoint),
-			PresharedKey: psk,
+			PublicKey:                   publicKey,
+			AllowedIPs:                  ips,
+			Endpoint:                    net.UDPAddrFromAddrPort(endpoint),
+			PresharedKey:                psk,
+			PersistentKeepaliveInterval: time.Second * 60,
 		})
 	}
 
-	ip := net.ParseIP(populatedPeer.Status.Address)
+	ip := net.ParseIP(peer.Status.Address)
 
 	oubuf := &strings.Builder{}
-	err = Format(oubuf, ConfigFile{
+	err := Format(oubuf, ConfigFile{
 		Address: &net.IPNet{
 			IP:   ip,
 			Mask: mask(ip),
 		},
 		Device: wgtypes.Device{
-			Name:       name,
-			PrivateKey: keyset,
+			Name:       peer.Metadata.Name,
+			PrivateKey: pk,
 			ListenPort: 51820,
 			Peers:      peers,
 		},
