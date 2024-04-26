@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
 func peerCmd() *cobra.Command {
@@ -84,14 +83,15 @@ func newPeer(name string, rules []string) error {
 		return fmt.Errorf("cannot create CRD client: %w", err)
 	}
 
-	_, err = c.CreateWireguardAccessPeer(context.Background(), peerValue)
+	created, err := c.CreateWireguardAccessPeer(context.Background(), peerValue)
 	if err != nil {
 		return fmt.Errorf("cannot create peer: %w", err)
 	}
 
 	w, err := c.WatchWireguardAccessPeers(context.Background(), v1.ListOptions{
-		Watch:         true,
-		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
+		Watch:           true,
+		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
+		ResourceVersion: created.Metadata.ResourceVersion,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot watch peer: %w", err)
@@ -99,9 +99,6 @@ func newPeer(name string, rules []string) error {
 
 	var populatedPeer wgav1beta.WireguardAccessPeer
 	for event := range w.ResultChan() {
-		if event.Type != watch.Modified {
-			continue
-		}
 		if event.Object == nil {
 			continue
 		}
@@ -110,15 +107,17 @@ func newPeer(name string, rules []string) error {
 			continue
 		}
 
-		populatedPeer = *peer
-		w.Stop()
-		break
+		if peer != nil && peer.Status != nil && peer.Status.Address != "" {
+			populatedPeer = *peer
+			w.Stop()
+			break
+		}
 	}
 
-	return fmtPeer(populatedPeer, keyset)
+	return fmtPeer(populatedPeer, keyset, pskset)
 }
 
-func fmtPeer(peer wgav1beta.WireguardAccessPeer, pk wgtypes.Key) error {
+func fmtPeer(peer wgav1beta.WireguardAccessPeer, pk, psk wgtypes.Key) error {
 	peers := []wgtypes.Peer{}
 	for _, peer := range peer.Status.Peers {
 		publicKey, err := wgtypes.ParseKey(peer.PublicKey)
@@ -141,7 +140,6 @@ func fmtPeer(peer wgav1beta.WireguardAccessPeer, pk wgtypes.Key) error {
 			return fmt.Errorf("cannot parse endpoint: %w", err)
 		}
 
-		var psk wgtypes.Key
 		if len(peer.PreSharedKey) != 0 {
 			psk, err = wgtypes.ParseKey(peer.PreSharedKey)
 			if err != nil {

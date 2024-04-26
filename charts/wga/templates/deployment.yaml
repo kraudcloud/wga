@@ -38,6 +38,8 @@ spec:
               value: {{.Values.endpoint.clientCIDR}}
             - name: WGA_SERVER_ADDRESS
               value: {{.Values.endpoint.address}}
+            - name: WGA_ALLOWED_IPS
+              value: {{join "," .Values.endpoint.allowedIPs}}
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:

@@ -11,7 +11,7 @@ import (
 	"github.com/google/nftables"
 )
 
-func sysctl(config *Config) {
+func sysctl() {
 	exec.Command("sysctl", "-w", "net.ipv6.conf.all.forwarding=1").Run()
 }
 

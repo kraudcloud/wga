@@ -8,6 +8,8 @@ endpoint:
   port: 51820
   clientCIDR: fdfd::/16
   address: fdfd::1
+  allowedIPs:
+    - fdfd::/16
 
 version: "0.3.21"
 

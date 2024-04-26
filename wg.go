@@ -26,7 +26,7 @@ const DEVICENAME = "wga"
 var WGConfig = wgtypes.Config{}
 var WGInitOnce = sync.Once{}
 
-func wgInit(config *Config) error {
+func wgInit() error {
 
 	slog.Info("create wg", "interface", DEVICENAME)
 
@@ -96,7 +96,7 @@ func wgInit(config *Config) error {
 
 func wgSync(config *Config, client *wgav1beta.Client) error {
 	WGInitOnce.Do(func() {
-		if err := wgInit(config); err != nil {
+		if err := wgInit(); err != nil {
 			panic(err)
 		}
 	})
@@ -115,6 +115,12 @@ func wgSync(config *Config, client *wgav1beta.Client) error {
 		return fmt.Errorf("WGA_SERVER_ADDRESS not set")
 	}
 
+	allowedIPEnv := os.Getenv("WGA_ALLOWED_IPS")
+	if allowedIPEnv == "" {
+		return fmt.Errorf("WGA_ALLOWED_IPS not set")
+	}
+
+	allowedIPs := strings.Split(allowedIPEnv, ",")
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
 	// find out what peers have no `status` and generate their status
 	// this should probably be in the watcher rather than here.
@@ -136,11 +142,9 @@ func wgSync(config *Config, client *wgav1beta.Client) error {
 					Address:     sip.String(),
 					Peers: []wgav1beta.WireguardAccessPeerStatusPeer{
 						{
-							PublicKey: WGConfig.PrivateKey.PublicKey().String(),
-							Endpoint:  net.JoinHostPort(serverAddr, strconv.FormatInt(int64(*WGConfig.ListenPort), 10)),
-							AllowedIPs: []string{
-								clientCIDR.String(), // FIXME: unsure if that's right.
-							},
+							PublicKey:  WGConfig.PrivateKey.PublicKey().String(),
+							Endpoint:   net.JoinHostPort(serverAddr, strconv.FormatInt(int64(*WGConfig.ListenPort), 10)),
+							AllowedIPs: allowedIPs,
 						},
 					},
 				},
@@ -160,10 +164,13 @@ func wgSync(config *Config, client *wgav1beta.Client) error {
 			Mask: net.CIDRMask(128, 128),
 		}
 
-		psk, err := wgtypes.ParseKey(peer.Spec.PreSharedKey)
-		if err != nil {
-			slog.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Metadata.Name)
-			continue
+		var psk wgtypes.Key
+		if peer.Spec.PreSharedKey != "" {
+			psk, err = wgtypes.ParseKey(peer.Spec.PreSharedKey)
+			if err != nil {
+				slog.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Metadata.Name)
+				continue
+			}
 		}
 
 		pub, err := wgtypes.ParseKey(peer.Spec.PublicKey)
@@ -220,7 +227,7 @@ func wgSync(config *Config, client *wgav1beta.Client) error {
 				slog.Info("# allowedips changed", "peer", k, "from", len(old.AllowedIPs), "to", len(nu.AllowedIPs))
 				changed = true
 			} else {
-				for i, _ := range nu.AllowedIPs {
+				for i := range nu.AllowedIPs {
 					if !nu.AllowedIPs[i].IP.Equal(old.AllowedIPs[i].IP) {
 						slog.Info("# allowedips changed ", "peer", k, "ip", i, "from", old.AllowedIPs[i].IP, "to", nu.AllowedIPs[i].IP)
 						changed = true

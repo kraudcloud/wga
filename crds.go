@@ -61,7 +61,7 @@ func epMain() {
 
 		wgSync(cfg, crdClient)
 		nftSync(cfg)
-		sysctl(cfg)
+		sysctl()
 	}
 
 	go watchCR(clientset, wgaPeers, handler)
