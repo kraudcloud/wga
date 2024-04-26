@@ -1,3 +1,9 @@
 Dockerfile
 .dockerignore
 /charts
+/examples
+/.direnv
+/.github
+*.yaml
+*.md
+*.nix

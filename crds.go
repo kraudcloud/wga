@@ -2,57 +2,24 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/kraudcloud/wga/wgav1beta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Config struct {
-	Rules []WireguardAccessRule
-	Peers []WireguardAccessPeer
-}
-
-type WireguardAccessEndpointSpec struct {
-	ClientCIDR string `yaml:"clientCIDR"`
-}
-
-type WireguardAccessEndpoint struct {
-	metav1.TypeMeta `json:",inline"`
-	Metadata        metav1.ObjectMeta           `json:"metadata,omitempty"`
-	Spec            WireguardAccessEndpointSpec `json:"spec"`
-}
-
-type WireguardAccessRuleSpec struct {
-	Destinations []string `yaml:"destinations" json:"destinations"`
-}
-
-type WireguardAccessRule struct {
-	metav1.TypeMeta `json:",inline"`
-	Metadata        metav1.ObjectMeta       `json:"metadata,omitempty"`
-	Spec            WireguardAccessRuleSpec `json:"spec"`
-}
-
-type WireguardAccessPeerSpec struct {
-	Index     int      `yaml:"index" json:"index"`
-	PublicKey string   `yaml:"pub" json:"pub"`
-	PSK       string   `yaml:"psk" json:"psk"`
-	Rules     []string `yaml:"rules" json:"rules"`
-}
-
-type WireguardAccessPeer struct {
-	metav1.TypeMeta `json:",inline"`
-	Metadata        metav1.ObjectMeta       `json:"metadata,omitempty"`
-	Spec            WireguardAccessPeerSpec `json:"spec"`
+	Rules []wgav1beta.WireguardAccessRule
+	Peers []wgav1beta.WireguardAccessPeer
 }
 
 func epMain() {
@@ -68,9 +35,9 @@ func epMain() {
 		os.Exit(1)
 	}
 
-	clientSetK, err := kubernetes.NewForConfig(config)
+	crdClient, err := wgav1beta.NewForConfig(config)
 	if err != nil {
-		slog.Error("Error creating Kubernetes client", "error", err)
+		slog.Error("Error creating CRD client", "error", err)
 		os.Exit(1)
 	}
 
@@ -87,12 +54,12 @@ func epMain() {
 	}
 
 	handler := func() {
-		cfg, err := Fetch(clientset, clientSetK, wgaPeers, wgaRules)
+		cfg, err := Fetch(crdClient)
 		if err != nil {
 			slog.Error("Error fetching CRDs", "error", err)
 		}
 
-		wgSync(cfg)
+		wgSync(cfg, crdClient)
 		nftSync(cfg)
 		sysctl(cfg)
 	}
@@ -108,54 +75,21 @@ func epMain() {
 	slog.Info("Received termination signal. Exiting.")
 }
 
-func Fetch(clientset dynamic.Interface, clientSetK kubernetes.Interface, wgaPeers, wgaRules schema.GroupVersionResource) (*Config, error) {
-
-	wgap, err := clientset.Resource(wgaPeers).List(context.TODO(), metav1.ListOptions{})
+func Fetch(client *wgav1beta.Client) (*Config, error) {
+	wgap, err := client.ListWireguardAccessPeers(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing peers: %w", err)
 	}
 
-	wgapList := []WireguardAccessPeer{}
-	for _, item := range wgap.Items {
-
-		wgap := WireguardAccessPeer{}
-		buf, _ := item.MarshalJSON()
-
-		err = json.Unmarshal(buf, &wgap)
-		if err != nil {
-			slog.Error("Error decoding CR", "error", err)
-			continue
-		}
-
-		wgapList = append(wgapList, wgap)
-
-	}
-
-	wgar, err := clientset.Resource(wgaRules).List(context.TODO(), metav1.ListOptions{})
+	wgar, err := client.ListWireguardAccessRules(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, err
-	}
-
-	wgarList := []WireguardAccessRule{}
-	for _, item := range wgar.Items {
-
-		wgar := WireguardAccessRule{}
-		buf, _ := item.MarshalJSON()
-
-		err = json.Unmarshal(buf, &wgar)
-		if err != nil {
-			slog.Error("Error decoding CR", "error", err)
-			continue
-		}
-
-		wgarList = append(wgarList, wgar)
+		return nil, fmt.Errorf("error listing rules: %w", err)
 	}
 
 	return &Config{
-		Rules: wgarList,
-		Peers: wgapList,
+		Rules: wgar.Items,
+		Peers: wgap.Items,
 	}, nil
-
 }
 
 func watchCR(clientset dynamic.Interface, gvr schema.GroupVersionResource, handler func()) {

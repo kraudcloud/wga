@@ -2,15 +2,19 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/apparentlymart/go-cidr/cidr"
+	"github.com/kraudcloud/wga/wgav1beta"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -18,21 +22,13 @@ import (
 
 const DEVICENAME = "wga"
 
+// WGConfig is readonly after `wgInit` is called.
+var WGConfig = wgtypes.Config{}
 var WGInitOnce = sync.Once{}
 
 func wgInit(config *Config) error {
 
 	slog.Info("create wg", "interface", DEVICENAME)
-
-	pkstr, err := os.ReadFile("/etc/wga/endpoint/privateKey")
-	if err != nil {
-		return fmt.Errorf("cannot read private key from /etc/wga/endpoint/privateKey: %w", err)
-	}
-
-	sk, err := wgtypes.ParseKey(strings.TrimSpace(string(pkstr)))
-	if err != nil {
-		return fmt.Errorf("cannot parse private key: %w", err)
-	}
 
 	// delete old link
 	link, _ := netlink.LinkByName(DEVICENAME)
@@ -47,7 +43,7 @@ func wgInit(config *Config) error {
 		},
 		LinkType: "wireguard",
 	}
-	err = netlink.LinkAdd(wirelink)
+	err := netlink.LinkAdd(wirelink)
 	if err != nil {
 		return fmt.Errorf("cannot create wg interface: %w", err)
 	}
@@ -60,14 +56,16 @@ func wgInit(config *Config) error {
 	}
 	defer wg.Close()
 
-	wgconfig := wgtypes.Config{}
+	sk, err := readKey()
+	if err != nil {
+		return fmt.Errorf("cannot read wg private key: %w", err)
+	}
 
-	wgconfig.PrivateKey = &sk
-
+	WGConfig.PrivateKey = &sk
 	var port = 51820
-	wgconfig.ListenPort = &port
+	WGConfig.ListenPort = &port
 
-	err = wg.ConfigureDevice(DEVICENAME, wgconfig)
+	err = wg.ConfigureDevice(DEVICENAME, WGConfig)
 	if err != nil {
 		return fmt.Errorf("wgctrl.ConfigureDevice: %w", err)
 	}
@@ -96,7 +94,7 @@ func wgInit(config *Config) error {
 	return nil
 }
 
-func wgSync(config *Config) error {
+func wgSync(config *Config, client *wgav1beta.Client) error {
 	WGInitOnce.Do(func() {
 		if err := wgInit(config); err != nil {
 			panic(err)
@@ -105,34 +103,66 @@ func wgSync(config *Config) error {
 
 	slog.Info("sync wg", "interface", DEVICENAME)
 
-	var err error
-
 	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
 	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
 	if err != nil {
 		slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
-		panic(err)
+		return err
+	}
+
+	serverAddr := os.Getenv("WGA_SERVER_ADDRESS")
+	if serverAddr == "" {
+		return fmt.Errorf("WGA_SERVER_ADDRESS not set")
 	}
 
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
+	// find out what peers have no `status` and generate their status
+	// this should probably be in the watcher rather than here.
+	for i, peer := range config.Peers {
+		if peer.Status == nil {
+			sip, err := cidr.Host(clientCIDR, generateIndex(clientCIDR))
+			if err != nil {
+				slog.Error(err.Error(), "peer", peer.Metadata.Name)
+			}
 
-	for _, peer := range config.Peers {
+			slog.Info("  init ", "peer", peer.Metadata.Name)
 
-		slog.Info("  sync ", "peer", peer.Metadata.Name)
+			rsp, err := client.PutWireguardAccessPeer(context.Background(), peer.Metadata.Name, wgav1beta.WireguardAccessPeer{
+				TypeMeta: peer.TypeMeta,
+				Metadata: peer.Metadata,
+				Spec:     peer.Spec,
+				Status: &wgav1beta.WireguardAccessPeerStatus{
+					LastUpdated: time.Now().Format(time.RFC3339),
+					Address:     sip.String(),
+					Peers: []wgav1beta.WireguardAccessPeerStatusPeer{
+						{
+							PublicKey: WGConfig.PrivateKey.PublicKey().String(),
+							Endpoint:  net.JoinHostPort(serverAddr, strconv.FormatInt(int64(*WGConfig.ListenPort), 10)),
+							AllowedIPs: []string{
+								clientCIDR.String(), // FIXME: unsure if that's right.
+							},
+						},
+					},
+				},
+			})
+			if err != nil {
+				slog.Error(err.Error(), "peer", peer.Metadata.Name)
+			}
 
-		sip, err := cidr.Host(clientCIDR, peer.Spec.Index)
-		if err != nil {
-			slog.Error(err.Error(), "peer", peer.Metadata.Name)
+			config.Peers[i] = *rsp
+			peer = config.Peers[i]
 		}
 
+		slog.Info("  sync ", "peer", peer.Metadata.Name, "address", peer.Status.Address)
+
 		snet := net.IPNet{
-			IP:   sip,
+			IP:   net.ParseIP(peer.Status.Address),
 			Mask: net.CIDRMask(128, 128),
 		}
 
-		psk, err := wgtypes.ParseKey(peer.Spec.PSK)
+		psk, err := wgtypes.ParseKey(peer.Spec.PreSharedKey)
 		if err != nil {
-			slog.Error(err.Error(), "presharedKey", "<recacted>", "peer", peer.Metadata.Name)
+			slog.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Metadata.Name)
 			continue
 		}
 
@@ -238,4 +268,47 @@ func wgSync(config *Config) error {
 	}
 
 	return nil
+}
+
+func generateIndex(cidr *net.IPNet) int {
+	// a /16 means we have either 112 or 16 bits of network. figure out which
+	// and use that to generate the index.
+	bits, _ := cidr.Mask.Size()
+	if len(cidr.IP) == net.IPv4len {
+		bits = 32 - bits
+	} else {
+		bits = 128 - bits
+	}
+
+	// fill time as much as possible (up to 64 bits)
+	// add 16 bits of randomness
+	bits = min(bits, 64)
+
+	// make sure we take the most significant bits of the time.
+	index := 0
+	if bits > 16 {
+		index = int(time.Now().UnixNano() >> (64 - bits))
+	}
+
+	randbuf := make([]byte, 2)
+	_, err := rand.Read(randbuf)
+	if err != nil {
+		return index
+	}
+
+	if bits > 8 {
+		index = index | (int(randbuf[0]) << 8)
+	}
+
+	index = index | (int(randbuf[1]))
+	return index
+}
+
+func readKey() (wgtypes.Key, error) {
+	pkstr, err := os.ReadFile("/etc/wga/endpoint/privateKey")
+	if err != nil {
+		return wgtypes.Key{}, fmt.Errorf("cannot read private key from /etc/wga/endpoint/privateKey: %w", err)
+	}
+
+	return wgtypes.ParseKey(strings.TrimSpace(string(pkstr)))
 }

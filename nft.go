@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/google/nftables"
 )
 
@@ -68,27 +67,18 @@ func nftSync(config *Config) {
 		ruleMap[string(r.UserData)] = r
 	}
 
-	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
-
-	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
-	if err != nil {
-		slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
-		return
-	}
-
 	for _, peer := range config.Peers {
-
-		sip, err := cidr.Host(clientCIDR, peer.Spec.Index)
-		if err != nil {
-			slog.Error(err.Error(), "peer", peer.Metadata.Name)
+		if peer.Status == nil {
+			slog.Warn("peer has no status", "peer", peer.Metadata.Name)
+			continue
 		}
 
 		snet := net.IPNet{
-			IP:   sip,
+			IP:   net.ParseIP(peer.Status.Address),
 			Mask: net.CIDRMask(128, 128),
 		}
 
-		for _, name := range peer.Spec.Rules {
+		for _, name := range peer.Spec.AccessRules {
 
 			for _, dnet := range ruleNameToDestinations[name] {
 

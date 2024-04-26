@@ -4,12 +4,12 @@ service:
   loadBalancerIP: null
   annotations: {}
 
-port: 51820
+endpoint:
+  port: 51820
+  clientCIDR: fdfd::/16
+  address: fdfd::1
 
 version: "0.3.21"
-
-endpoint:
-  clientCIDR: fdfd::/16
 
 serviceAccount:
   create: true
