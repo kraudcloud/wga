@@ -59,7 +59,11 @@ func epMain() {
 			slog.Error("Error fetching CRDs", "error", err)
 		}
 
-		wgSync(cfg, crdClient)
+		err = wgSync(cfg, crdClient)
+		if err != nil {
+			slog.Error("Error syncing CRDs", "error", err)
+		}
+
 		nftSync(cfg)
 		sysctl()
 	}
