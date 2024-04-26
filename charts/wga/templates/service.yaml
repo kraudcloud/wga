@@ -17,8 +17,8 @@ spec:
   {{- end }}
   type: {{ .Values.service.type }}
   ports:
-  - port: {{ .Values.port }}
+  - port: {{ .Values.endpoint.port }}
     protocol: UDP
-    targetPort: {{ .Values.port }}
+    targetPort: {{ .Values.endpoint.port }}
   selector:
     app: wireguard

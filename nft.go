@@ -68,6 +68,11 @@ func nftSync(config *Config) {
 	}
 
 	for _, peer := range config.Peers {
+		if peer.Status == nil {
+			slog.Warn("peer has no status", "peer", peer.Metadata.Name)
+			continue
+		}
+
 		snet := net.IPNet{
 			IP:   net.ParseIP(peer.Status.Address),
 			Mask: net.CIDRMask(128, 128),

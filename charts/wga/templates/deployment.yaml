@@ -15,44 +15,46 @@ spec:
       labels:
         app: wireguard
     spec:
-      serviceAccountName: {{ include "wga.serviceAccountName" . }}
+      serviceAccountName: {{include "wga.serviceAccountName" .}}
       containers:
-      - image: ghcr.io/kraudcloud/wga:{{.Values.version }}
-        imagePullPolicy: IfNotPresent
-        name: wg
-        args:
-          - ep 
-        ports:
-        - containerPort: {{ .Values.port }}
-          name: wireguard
-          protocol: UDP
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "500m"
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-        env:
-          - name: WGA_CLIENT_CIDR
-            value: {{.Values.endpoint.clientCIDR }}
-          - name: GOMEMLIMIT
-            valueFrom:
-              resourceFieldRef:
-                containerName: wg
-                resource: limits.memory
-        securityContext:
-          privileged: true
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-        volumeMounts:
-        - mountPath: /etc/wga/endpoint/
-          name: endpoint
+        - image: ghcr.io/kraudcloud/wga:{{.Values.version }}
+          imagePullPolicy: IfNotPresent
+          name: wg
+          args:
+            - ep
+          ports:
+            - containerPort: {{.Values.endpoint.port}}
+              name: wireguard
+              protocol: UDP
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "500m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          env:
+            - name: WGA_CLIENT_CIDR
+              value: {{.Values.endpoint.clientCIDR}}
+            - name: WGA_SERVER_ADDRESS
+              value: {{.Values.endpoint.address}}
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: wg
+                  resource: limits.memory
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+          volumeMounts:
+            - mountPath: /etc/wga/endpoint/
+              name: endpoint
       restartPolicy: Always
       volumes:
-      - name: endpoint
-        secret:
-          defaultMode: 420
-          secretName: endpoint
+        - name: endpoint
+          secret:
+            defaultMode: 420
+            secretName: endpoint
