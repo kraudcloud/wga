@@ -18,6 +18,7 @@
         packages = with pkgs; [
           go
           gotools
+          gofumpt
           kubectl
           kubernetes-helm
           minikube

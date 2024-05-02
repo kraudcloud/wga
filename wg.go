@@ -23,11 +23,12 @@ import (
 const DEVICENAME = "wga"
 
 // WGConfig is readonly after `wgInit` is called.
-var WGConfig = wgtypes.Config{}
-var WGInitOnce = sync.Once{}
+var (
+	WGConfig   = wgtypes.Config{}
+	WGInitOnce = sync.Once{}
+)
 
 func wgInit() error {
-
 	slog.Info("create wg", "interface", DEVICENAME)
 
 	// delete old link
@@ -62,7 +63,7 @@ func wgInit() error {
 	}
 
 	WGConfig.PrivateKey = &sk
-	var port = 51820
+	port := 51820
 	WGConfig.ListenPort = &port
 
 	err = wg.ConfigureDevice(DEVICENAME, WGConfig)
@@ -86,7 +87,6 @@ func wgInit() error {
 		LinkIndex: link.Attrs().Index,
 		Dst:       clientCIDR,
 	})
-
 	if err != nil {
 		return fmt.Errorf("cannot add route: %w", err)
 	}
@@ -94,19 +94,19 @@ func wgInit() error {
 	return nil
 }
 
-func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error {
+func wgSync(ctx context.Context, log *slog.Logger, config *Config, client *wgav1beta.Client) error {
 	WGInitOnce.Do(func() {
 		if err := wgInit(); err != nil {
 			panic(err)
 		}
 	})
 
-	slog.Info("sync wg", "interface", DEVICENAME)
+	log.Info("sync wg", "interface", DEVICENAME)
 
 	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
 	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
 	if err != nil {
-		slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
+		log.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
 		return err
 	}
 
@@ -124,15 +124,15 @@ func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
 	// find out what peers have no `status` and generate their status
 	// this should probably be in the watcher rather than here.
+	log.Debug("syncing peers")
 	for i, peer := range config.Peers {
 		if peer.Status == nil {
 			sip, err := cidr.Host(clientCIDR, generateIndex(clientCIDR))
 			if err != nil {
-				slog.Error(err.Error(), "peer", peer.Metadata.Name)
+				log.Error(err.Error(), "peer", peer.Metadata.Name)
 			}
 
-			slog.Info("  init ", "peer", peer.Metadata.Name)
-
+			log.Info("setting peer status", "peer", peer.Metadata.Name)
 			rsp, err := client.PutWireguardAccessPeer(ctx, peer.Metadata.Name, wgav1beta.WireguardAccessPeer{
 				TypeMeta: peer.TypeMeta,
 				Metadata: peer.Metadata,
@@ -157,8 +157,7 @@ func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error
 			peer = config.Peers[i]
 		}
 
-		slog.Info("  sync ", "peer", peer.Metadata.Name, "address", peer.Status.Address)
-
+		log.Info("syncing", "peer", peer.Metadata.Name, "address", peer.Status.Address)
 		snet := net.IPNet{
 			IP:   net.ParseIP(peer.Status.Address),
 			Mask: net.CIDRMask(128, 128),
@@ -168,14 +167,14 @@ func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error
 		if peer.Spec.PreSharedKey != "" {
 			psk, err = wgtypes.ParseKey(peer.Spec.PreSharedKey)
 			if err != nil {
-				slog.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Metadata.Name)
+				log.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Metadata.Name)
 				continue
 			}
 		}
 
 		pub, err := wgtypes.ParseKey(peer.Spec.PublicKey)
 		if err != nil {
-			slog.Error(err.Error(), "publicKey", peer.Spec.PublicKey, "peer", peer.Metadata.Name)
+			log.Error(err.Error(), "publicKey", peer.Spec.PublicKey, "peer", peer.Metadata.Name)
 			continue
 		}
 
@@ -193,12 +192,14 @@ func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error
 
 	}
 
+	log.Debug("creating wgctrl client")
 	wg, err := wgctrl.New()
 	if err != nil {
 		return fmt.Errorf("wgctrl.New: %w", err)
 	}
 	defer wg.Close()
 
+	log.Debug("getting existing device")
 	existing_device, err := wg.Device(DEVICENAME)
 	if err != nil {
 		return fmt.Errorf("wg.Device(%s): %w", DEVICENAME, err)
@@ -206,7 +207,7 @@ func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error
 
 	havePeers := make(map[string]*wgtypes.Peer, 0)
 	for _, v := range existing_device.Peers {
-		var vclone = v
+		vclone := v
 		havePeers[v.PublicKey.String()] = &vclone
 	}
 
@@ -214,33 +215,33 @@ func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error
 		ReplacePeers: false,
 	}
 
+	log.Debug("comparing existing and desired peers")
 	for k, old := range havePeers {
-
 		if nu, ok := shouldPeers[k]; ok {
-			var changed = false
+			changed := false
 
 			if nu.PresharedKey != nil && *nu.PresharedKey != old.PresharedKey {
-				slog.Info("# psk changed ", "peer", k)
+				log.Info("# psk changed ", "peer", k)
 				changed = true
 			}
 			if len(nu.AllowedIPs) != len(old.AllowedIPs) {
-				slog.Info("# allowedips changed", "peer", k, "from", len(old.AllowedIPs), "to", len(nu.AllowedIPs))
+				log.Info("# allowedips changed", "peer", k, "from", len(old.AllowedIPs), "to", len(nu.AllowedIPs))
 				changed = true
 			} else {
 				for i := range nu.AllowedIPs {
 					if !nu.AllowedIPs[i].IP.Equal(old.AllowedIPs[i].IP) {
-						slog.Info("# allowedips changed ", "peer", k, "ip", i, "from", old.AllowedIPs[i].IP, "to", nu.AllowedIPs[i].IP)
+						log.Info("# allowedips changed ", "peer", k, "ip", i, "from", old.AllowedIPs[i].IP, "to", nu.AllowedIPs[i].IP)
 						changed = true
 					}
 					if !bytes.Equal(nu.AllowedIPs[i].Mask, old.AllowedIPs[i].Mask) {
-						slog.Info("# allowedips changed ", "peer", k, "ip", i, "from", old.AllowedIPs[i].Mask, "to", nu.AllowedIPs[i].Mask)
+						log.Info("# allowedips changed ", "peer", k, "ip", i, "from", old.AllowedIPs[i].Mask, "to", nu.AllowedIPs[i].Mask)
 						changed = true
 					}
 				}
 			}
 
 			if !changed {
-				//log.Println("# unchanged ")
+				// log.Println("# unchanged ")
 				delete(shouldPeers, k)
 				continue
 			}
@@ -249,26 +250,27 @@ func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error
 			nu.ReplaceAllowedIPs = true
 			nuconfig.Peers = append(nuconfig.Peers, nu)
 
-			slog.Info("# update ")
+			log.Info("# update ")
 			delete(shouldPeers, k)
 
 		} else {
 
-			//remove peers that are no longer in the new config
+			// remove peers that are no longer in the new config
 			nuconfig.Peers = append(nuconfig.Peers, wgtypes.PeerConfig{
 				Remove:    true,
 				PublicKey: old.PublicKey,
 			})
-			slog.Info("# remove ", "peer", k)
+			log.Info("# remove ", "peer", k)
 		}
 	}
 
 	// add the rest that is not yet there
 	for k, v := range shouldPeers {
-		slog.Info("# add", "pk", k)
+		log.Info("# add", "pk", k)
 		nuconfig.Peers = append(nuconfig.Peers, v)
 	}
 
+	log.Debug("configuring device")
 	err = wg.ConfigureDevice(DEVICENAME, nuconfig)
 	if err != nil {
 		return fmt.Errorf("wg.ConfigureDevice: %w", err)

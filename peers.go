@@ -122,6 +122,10 @@ func newPeer(ctx context.Context, name string, rules []string, dns []net.IP) err
 		}
 	}
 
+	if populatedPeer.Status == nil {
+		return fmt.Errorf("peer has no status, there was probably an error with the wga server")
+	}
+
 	return fmtPeer(populatedPeer, dns, keyset, pskset)
 }
 

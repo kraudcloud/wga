@@ -1,0 +1,9 @@
+apiVersion: wga.kraudcloud.com/v1beta
+kind: WireguardAccessPeer
+metadata:
+  name: kar3
+spec:
+  publicKey: MfNMMh5/7upwXOM6nvykD/A+X73CxhxgR60SnkUSyVk=
+  preSharedKey: xYBfU+Vb63Yfk8OIjgtvOKyKx7Z3bgleQB6BTAl09pY=
+  accessRules:
+    - "admin"

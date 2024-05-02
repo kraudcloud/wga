@@ -33,3 +33,9 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+{{/*
+Create image tag for the container
+*/}}
+{{- define "wga.imageTag" -}}
+{{- default .Chart.AppVersion .Values.image.tag }}
+{{- end }}
