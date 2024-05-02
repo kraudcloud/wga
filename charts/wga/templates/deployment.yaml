@@ -17,7 +17,7 @@ spec:
     spec:
       serviceAccountName: {{include "wga.serviceAccountName" .}}
       containers:
-        - image: ghcr.io/kraudcloud/wga:{{.Values.version }}
+        - image: "{{ .Values.image.repository }}:{{include "wga.imageTag" .}}"
           imagePullPolicy: IfNotPresent
           name: wg
           args:
@@ -40,6 +40,10 @@ spec:
               value: {{.Values.endpoint.address}}
             - name: WGA_ALLOWED_IPS
               value: {{join "," .Values.endpoint.allowedIPs}}
+              {{- if .Values.logLevel }}
+            - name: LOG_LEVEL
+              value: "{{ .Values.logLevel }}"
+              {{- end }}
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:

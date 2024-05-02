@@ -12,14 +12,16 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const GroupName = "wga.kraudcloud.com"
-const GroupVersion = "v1beta"
+const (
+	GroupName    = "wga.kraudcloud.com"
+	GroupVersion = "v1beta"
 
-const WireguardAccessPeerKind = "WireguardAccessPeer"
-const WireguardAccessRuleKind = "WireguardAccessRule"
+	WireguardAccessPeerKind = "WireguardAccessPeer"
+	WireguardAccessRuleKind = "WireguardAccessRule"
 
-const WireguardAccessPeerResource = "wireguardaccesspeers"
-const WireguardAccessRuleResource = "wireguardaccessrules"
+	WireguardAccessPeerResource = "wireguardaccesspeers"
+	WireguardAccessRuleResource = "wireguardaccessrules"
+)
 
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
 

@@ -1,18 +1,40 @@
+# service through which to expose wga
 service:
   type: "LoadBalancer"
+  # should expose wga to the public internet
   loadBalancerClass: null
+  # is the loadBalancerIP to use for the service. Should be the same as `endpoint.address`.
   loadBalancerIP: null
   annotations: {}
 
 endpoint:
+  # wireguard port to serve on
   port: 51820
+  # clientCIDR is the range allocatable for clients.
+  # wga will allocate from this prefix with the CIDR.
   clientCIDR: fdfd::/16
+  # address is the public address for the wireguard interface
   address: fdfd::1
+  # allowedIPs is the list of IPs that are allowed to connect to from the wireguard interface
+  # these represent the local service from the wga pod pov.
   allowedIPs:
     - fdfd::/16
 
-version: "0.3.26"
+# logLevel represents how verbose logs are.
+# levels are in increments of 4.
+#   8  Error
+#   4  Warn
+#   0  Info
+#   -4 Debug
+logLevel: 0
 
+# image represents the docker image to use for the wga pod.
+image:
+  # tag is automatically generated from the wga-chart version used. You can still override it
+  tag:
+  repository: ghcr.io/kraudcloud/wga
+
+# serviceAccount is required for wga to edit wgaps and wgars.
 serviceAccount:
   create: true
   name:

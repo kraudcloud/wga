@@ -12,35 +12,53 @@ import (
 	"github.com/google/nftables"
 )
 
-func sysctl() {
-	exec.Command("sysctl", "-w", "net.ipv6.conf.all.forwarding=1").Run()
+func sysctl(ctx context.Context, log *slog.Logger) {
+	cmd := exec.CommandContext(ctx, "sysctl", "-w", "net.ipv6.conf.all.forwarding=1")
+	if err := cmd.Run(); err != nil {
+		log.Error("failed to run sysctl", "error", err)
+	}
 }
 
 var NFTInitOnce = sync.Once{}
 
-func nftInit() {
-	exec.Command("nft", "add", "table", "inet", "filter").Run()
-	exec.Command("nft", "add", "chain", "inet", "filter", "postrouting", "{ type nat hook postrouting priority 100 ; }").Run()
-	exec.Command("nft", "add", "rule", "inet", "filter", "postrouting", "oifname", "eth0", "masquerade").Run()
+func nftInit(ctx context.Context, log *slog.Logger) {
+	cmd := exec.CommandContext(ctx, "nft", "add", "table", "inet", "filter")
+	if err := cmd.Run(); err != nil {
+		log.Error("failed to add table inet filter", "error", err)
+	}
+
+	cmd = exec.CommandContext(ctx, "nft", "add", "chain", "inet", "filter", "postrouting", "{ type nat hook postrouting priority 100 ; }")
+	if err := cmd.Run(); err != nil {
+		log.Error("failed to add chain inet filter postrouting", "error", err)
+	}
+
+	cmd = exec.CommandContext(ctx, "nft", "add", "rule", "inet", "filter", "postrouting", "oifname", "eth0", "masquerade")
+	if err := cmd.Run(); err != nil {
+		log.Error("failed to add rule inet filter postrouting oifname eth0 masquerade", "error", err)
+	}
 }
 
-func nftSync(ctx context.Context, config *Config) {
-	NFTInitOnce.Do(nftInit)
+func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
+	NFTInitOnce.Do(func() {
+		nftInit(ctx, log)
+	})
 
-	var ruleNameToDestinations = make(map[string][]net.IPNet)
+	ruleNameToDestinations := make(map[string][]net.IPNet)
 	for _, rr := range config.Rules {
 
 		nets := []net.IPNet{}
 		for _, d := range rr.Spec.Destinations {
 			_, ipnet, err := net.ParseCIDR(d)
 			if err != nil {
-				slog.Error(err.Error())
+				log.Error(err.Error())
 				continue
 			}
 			nets = append(nets, *ipnet)
 		}
 		ruleNameToDestinations[rr.Metadata.Name] = nets
 	}
+
+	log.Debug("ruleNameToDestinations created")
 
 	nft, err := nftables.New()
 	if err != nil {
@@ -53,10 +71,14 @@ func nftSync(ctx context.Context, config *Config) {
 		panic(err)
 	}
 
+	log.Debug("table checked or created")
+
 	chain, err := checkOrCreateWGAIngressChain(ctx, nft, table, DEVICENAME)
 	if err != nil {
 		panic(err)
 	}
+
+	log.Debug("chain checked or created")
 
 	rules, err := nft.GetRules(table, chain)
 	if err != nil {
@@ -68,9 +90,11 @@ func nftSync(ctx context.Context, config *Config) {
 		ruleMap[string(r.UserData)] = r
 	}
 
+	log.Debug("ruleMap created")
+
 	for _, peer := range config.Peers {
 		if peer.Status == nil {
-			slog.Warn("peer has no status", "peer", peer.Metadata.Name)
+			log.Warn("peer has no status", "peer", peer.Metadata.Name)
 			continue
 		}
 
@@ -80,7 +104,6 @@ func nftSync(ctx context.Context, config *Config) {
 		}
 
 		for _, name := range peer.Spec.AccessRules {
-
 			for _, dnet := range ruleNameToDestinations[name] {
 
 				comment := "r" + strip(snet.String()+dnet.String())
@@ -104,21 +127,23 @@ func nftSync(ctx context.Context, config *Config) {
 				cmd.Stderr = os.Stderr
 				err = cmd.Run()
 				if err != nil {
-					slog.Error(err.Error(), "destination", dnet.String(), "peer", peer.Metadata.Name)
+					log.Error(err.Error(), "destination", dnet.String(), "peer", peer.Metadata.Name)
 					continue
 				}
 			}
-
 		}
 	}
+
+	log.Debug("rules added")
 
 	for _, stale := range ruleMap {
 		err := nft.DelRule(stale)
 		if err != nil {
-			slog.WarnContext(ctx, "error deleting stale rule", "err", err, "rule", stale)
+			log.WarnContext(ctx, "error deleting stale rule", "err", err, "rule", stale)
 		}
 	}
 
+	log.Debug("stale rules deleted")
 }
 
 func strip(s string) string {
@@ -153,8 +178,8 @@ func checkOrCreateTable(nft *nftables.Conn) (*nftables.Table, error) {
 }
 
 func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table *nftables.Table, device string) (
-	*nftables.Chain, error) {
-
+	*nftables.Chain, error,
+) {
 	chains, err := nft.ListChains()
 	if err != nil {
 		return nil, err
@@ -186,5 +211,4 @@ func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table
 	}
 
 	return nil, nil
-
 }
