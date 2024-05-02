@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/kraudcloud/wga/wgav1beta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,22 +55,25 @@ func epMain() {
 	}
 
 	handler := func() {
-		cfg, err := Fetch(crdClient)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		cfg, err := Fetch(ctx, crdClient)
 		if err != nil {
 			slog.Error("Error fetching CRDs", "error", err)
+			return
 		}
 
-		err = wgSync(cfg, crdClient)
+		err = wgSync(ctx, cfg, crdClient)
 		if err != nil {
 			slog.Error("Error syncing CRDs", "error", err)
 		}
 
-		nftSync(cfg)
+		nftSync(ctx, cfg)
 		sysctl()
 	}
 
-	go watchCR(clientset, wgaPeers, handler)
-	go watchCR(clientset, wgaRules, handler)
+	go watchCR(context.Background(), clientset, wgaPeers, handler)
+	go watchCR(context.Background(), clientset, wgaRules, handler)
 
 	// Wait for termination signal
 	signalChan := make(chan os.Signal, 1)
@@ -79,13 +83,13 @@ func epMain() {
 	slog.Info("Received termination signal. Exiting.")
 }
 
-func Fetch(client *wgav1beta.Client) (*Config, error) {
-	wgap, err := client.ListWireguardAccessPeers(context.TODO(), metav1.ListOptions{})
+func Fetch(ctx context.Context, client *wgav1beta.Client) (*Config, error) {
+	wgap, err := client.ListWireguardAccessPeers(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error listing peers: %w", err)
 	}
 
-	wgar, err := client.ListWireguardAccessRules(context.TODO(), metav1.ListOptions{})
+	wgar, err := client.ListWireguardAccessRules(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error listing rules: %w", err)
 	}
@@ -96,8 +100,8 @@ func Fetch(client *wgav1beta.Client) (*Config, error) {
 	}, nil
 }
 
-func watchCR(clientset dynamic.Interface, gvr schema.GroupVersionResource, handler func()) {
-	watch, err := clientset.Resource(gvr).Watch(context.TODO(), metav1.ListOptions{
+func watchCR(ctx context.Context, clientset dynamic.Interface, gvr schema.GroupVersionResource, handler func()) {
+	watch, err := clientset.Resource(gvr).Watch(ctx, metav1.ListOptions{
 		Watch: true,
 	})
 	if err != nil {

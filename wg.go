@@ -94,7 +94,7 @@ func wgInit() error {
 	return nil
 }
 
-func wgSync(config *Config, client *wgav1beta.Client) error {
+func wgSync(ctx context.Context, config *Config, client *wgav1beta.Client) error {
 	WGInitOnce.Do(func() {
 		if err := wgInit(); err != nil {
 			panic(err)
@@ -133,7 +133,7 @@ func wgSync(config *Config, client *wgav1beta.Client) error {
 
 			slog.Info("  init ", "peer", peer.Metadata.Name)
 
-			rsp, err := client.PutWireguardAccessPeer(context.Background(), peer.Metadata.Name, wgav1beta.WireguardAccessPeer{
+			rsp, err := client.PutWireguardAccessPeer(ctx, peer.Metadata.Name, wgav1beta.WireguardAccessPeer{
 				TypeMeta: peer.TypeMeta,
 				Metadata: peer.Metadata,
 				Spec:     peer.Spec,

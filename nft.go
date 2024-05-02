@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net"
 	"os"
@@ -23,7 +24,7 @@ func nftInit() {
 	exec.Command("nft", "add", "rule", "inet", "filter", "postrouting", "oifname", "eth0", "masquerade").Run()
 }
 
-func nftSync(config *Config) {
+func nftSync(ctx context.Context, config *Config) {
 	NFTInitOnce.Do(nftInit)
 
 	var ruleNameToDestinations = make(map[string][]net.IPNet)
@@ -52,7 +53,7 @@ func nftSync(config *Config) {
 		panic(err)
 	}
 
-	chain, err := checkOrCreateWGAIngressChain(nft, table, DEVICENAME)
+	chain, err := checkOrCreateWGAIngressChain(ctx, nft, table, DEVICENAME)
 	if err != nil {
 		panic(err)
 	}
@@ -95,7 +96,7 @@ func nftSync(config *Config) {
 					continue
 				}
 
-				cmd := exec.Command("nft", "add", "rule", "netdev", "wga", DEVICENAME,
+				cmd := exec.CommandContext(ctx, "nft", "add", "rule", "netdev", "wga", DEVICENAME,
 					"ip6", "saddr", snet.String(),
 					"ip6", "daddr", dnet.String(),
 					"counter", "accept", "comment", comment)
@@ -112,7 +113,10 @@ func nftSync(config *Config) {
 	}
 
 	for _, stale := range ruleMap {
-		nft.DelRule(stale)
+		err := nft.DelRule(stale)
+		if err != nil {
+			slog.WarnContext(ctx, "error deleting stale rule", "err", err, "rule", stale)
+		}
 	}
 
 }
@@ -148,7 +152,7 @@ func checkOrCreateTable(nft *nftables.Conn) (*nftables.Table, error) {
 	}), nft.Flush()
 }
 
-func checkOrCreateWGAIngressChain(nft *nftables.Conn, table *nftables.Table, device string) (
+func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table *nftables.Table, device string) (
 	*nftables.Chain, error) {
 
 	chains, err := nft.ListChains()
@@ -162,7 +166,7 @@ func checkOrCreateWGAIngressChain(nft *nftables.Conn, table *nftables.Table, dev
 		}
 	}
 
-	cmd := exec.Command("nft", "add", "chain", "netdev", DEVICENAME, device, "{ type filter hook ingress device "+device+" priority 0 ; policy drop; }")
+	cmd := exec.CommandContext(ctx, "nft", "add", "chain", "netdev", DEVICENAME, device, "{ type filter hook ingress device "+device+" priority 0 ; policy drop; }")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()

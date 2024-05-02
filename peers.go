@@ -39,7 +39,9 @@ func peerCmd() *cobra.Command {
 		Short: "add a WireguardAccessPeer",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			err := newPeer(args[0], rules, dns)
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			err := newPeer(ctx, args[0], rules, dns)
 			if err != nil {
 				slog.Error(err.Error())
 				os.Exit(1)
@@ -53,7 +55,7 @@ func peerCmd() *cobra.Command {
 	return cmd
 }
 
-func newPeer(name string, rules []string, dns []net.IP) error {
+func newPeer(ctx context.Context, name string, rules []string, dns []net.IP) error {
 	keyset, err := wgtypes.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("wgtypes.NewKey: %w", err)
@@ -89,12 +91,12 @@ func newPeer(name string, rules []string, dns []net.IP) error {
 		return fmt.Errorf("cannot create CRD client: %w", err)
 	}
 
-	created, err := c.CreateWireguardAccessPeer(context.Background(), peerValue)
+	created, err := c.CreateWireguardAccessPeer(ctx, peerValue)
 	if err != nil {
 		return fmt.Errorf("cannot create peer: %w", err)
 	}
 
-	w, err := c.WatchWireguardAccessPeers(context.Background(), v1.ListOptions{
+	w, err := c.WatchWireguardAccessPeers(ctx, v1.ListOptions{
 		Watch:           true,
 		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
 		ResourceVersion: created.Metadata.ResourceVersion,
