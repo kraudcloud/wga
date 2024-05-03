@@ -12,13 +12,13 @@ endpoint:
   port: 51820
   # clientCIDR is the range allocatable for clients.
   # wga will allocate from this prefix with the CIDR.
-  clientCIDR: fdfd::/16
+  clientCIDR: fdfd::/24
   # address is the public address for the wireguard interface
   address: fdfd::1
   # allowedIPs is the list of IPs that are allowed to connect to from the wireguard interface
   # these represent the local service from the wga pod pov.
   allowedIPs:
-    - fdfd::/16
+    - fdfd:00ff::/24
 
 # logLevel represents how verbose logs are.
 # levels are in increments of 4.

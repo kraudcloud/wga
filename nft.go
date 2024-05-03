@@ -21,28 +21,24 @@ func sysctl(ctx context.Context, log *slog.Logger) {
 
 var NFTInitOnce = sync.Once{}
 
-func nftInit(ctx context.Context, log *slog.Logger) {
-	cmd := exec.CommandContext(ctx, "nft", "add", "table", "inet", "filter")
+func nftInit() {
+	cmd := exec.Command("nft", "add", "table", "inet", "filter")
 	if err := cmd.Run(); err != nil {
-		log.Error("failed to add table inet filter", "error", err)
+		slog.Error("failed to add table inet filter", "error", err)
 	}
 
-	cmd = exec.CommandContext(ctx, "nft", "add", "chain", "inet", "filter", "postrouting", "{ type nat hook postrouting priority 100 ; }")
+	cmd = exec.Command("nft", "add", "chain", "inet", "filter", "postrouting", "{ type nat hook postrouting priority 100 ; }")
 	if err := cmd.Run(); err != nil {
-		log.Error("failed to add chain inet filter postrouting", "error", err)
+		slog.Error("failed to add chain inet filter postrouting", "error", err)
 	}
 
-	cmd = exec.CommandContext(ctx, "nft", "add", "rule", "inet", "filter", "postrouting", "oifname", "eth0", "masquerade")
+	cmd = exec.Command("nft", "add", "rule", "inet", "filter", "postrouting", "oifname", "eth0", "masquerade")
 	if err := cmd.Run(); err != nil {
-		log.Error("failed to add rule inet filter postrouting oifname eth0 masquerade", "error", err)
+		slog.Error("failed to add rule inet filter postrouting oifname eth0 masquerade", "error", err)
 	}
 }
 
 func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
-	NFTInitOnce.Do(func() {
-		nftInit(ctx, log)
-	})
-
 	ruleNameToDestinations := make(map[string][]net.IPNet)
 	for _, rr := range config.Rules {
 
@@ -55,7 +51,7 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
 			}
 			nets = append(nets, *ipnet)
 		}
-		ruleNameToDestinations[rr.Metadata.Name] = nets
+		ruleNameToDestinations[rr.Name] = nets
 	}
 
 	log.Debug("ruleNameToDestinations created")
@@ -94,7 +90,7 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
 
 	for _, peer := range config.Peers {
 		if peer.Status == nil {
-			log.Warn("peer has no status", "peer", peer.Metadata.Name)
+			log.Warn("peer has no status", "peer", peer.Name)
 			continue
 		}
 
@@ -127,7 +123,7 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
 				cmd.Stderr = os.Stderr
 				err = cmd.Run()
 				if err != nil {
-					log.Error(err.Error(), "destination", dnet.String(), "peer", peer.Metadata.Name)
+					log.Error(err.Error(), "destination", dnet.String(), "peer", peer.Name)
 					continue
 				}
 			}

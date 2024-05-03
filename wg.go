@@ -2,19 +2,15 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/apparentlymart/go-cidr/cidr"
-	"github.com/kraudcloud/wga/wgav1beta"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -94,92 +90,35 @@ func wgInit() error {
 	return nil
 }
 
-func wgSync(ctx context.Context, log *slog.Logger, config *Config, client *wgav1beta.Client) error {
-	WGInitOnce.Do(func() {
-		if err := wgInit(); err != nil {
-			panic(err)
-		}
-	})
-
-	log.Info("sync wg", "interface", DEVICENAME)
-
-	clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
-	_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
-	if err != nil {
-		log.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
-		return err
-	}
-
-	serverAddr := os.Getenv("WGA_SERVER_ADDRESS")
-	if serverAddr == "" {
-		return fmt.Errorf("WGA_SERVER_ADDRESS not set")
-	}
-
-	allowedIPEnv := os.Getenv("WGA_ALLOWED_IPS")
-	if allowedIPEnv == "" {
-		return fmt.Errorf("WGA_ALLOWED_IPS not set")
-	}
-
-	allowedIPs := strings.Split(allowedIPEnv, ",")
+func wgSync(log *slog.Logger, config *Config) error {
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
 	// find out what peers have no `status` and generate their status
 	// this should probably be in the watcher rather than here.
 	log.Debug("syncing peers")
-	for i, peer := range config.Peers {
-		if peer.Status == nil {
-			sip, err := cidr.Host(clientCIDR, generateIndex(clientCIDR))
-			if err != nil {
-				log.Error(err.Error(), "peer", peer.Metadata.Name)
-			}
-
-			log.Info("setting peer status", "peer", peer.Metadata.Name)
-			rsp, err := client.PutWireguardAccessPeer(ctx, peer.Metadata.Name, wgav1beta.WireguardAccessPeer{
-				TypeMeta: peer.TypeMeta,
-				Metadata: peer.Metadata,
-				Spec:     peer.Spec,
-				Status: &wgav1beta.WireguardAccessPeerStatus{
-					LastUpdated: time.Now().Format(time.RFC3339),
-					Address:     sip.String(),
-					Peers: []wgav1beta.WireguardAccessPeerStatusPeer{
-						{
-							PublicKey:  WGConfig.PrivateKey.PublicKey().String(),
-							Endpoint:   net.JoinHostPort(serverAddr, strconv.FormatInt(int64(*WGConfig.ListenPort), 10)),
-							AllowedIPs: allowedIPs,
-						},
-					},
-				},
-			})
-			if err != nil {
-				slog.Error(err.Error(), "peer", peer.Metadata.Name)
-			}
-
-			config.Peers[i] = *rsp
-			peer = config.Peers[i]
-		}
-
-		log.Info("syncing", "peer", peer.Metadata.Name, "address", peer.Status.Address)
+	for _, peer := range config.Peers {
+		log.Info("syncing peer", "peer", peer.Name, "address", peer.Status.Address)
 		snet := net.IPNet{
 			IP:   net.ParseIP(peer.Status.Address),
 			Mask: net.CIDRMask(128, 128),
 		}
 
 		var psk wgtypes.Key
+		var err error
 		if peer.Spec.PreSharedKey != "" {
 			psk, err = wgtypes.ParseKey(peer.Spec.PreSharedKey)
 			if err != nil {
-				log.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Metadata.Name)
+				log.Error(err.Error(), "presharedKey", "<redacted>", "peer", peer.Name)
 				continue
 			}
 		}
 
 		pub, err := wgtypes.ParseKey(peer.Spec.PublicKey)
 		if err != nil {
-			log.Error(err.Error(), "publicKey", peer.Spec.PublicKey, "peer", peer.Metadata.Name)
+			log.Error(err.Error(), "publicKey", peer.Spec.PublicKey, "peer", peer.Name)
 			continue
 		}
 
-		keepalive := 58 * time.Second
-
+		keepalive := 60 * time.Second
 		pc := wgtypes.PeerConfig{
 			PersistentKeepaliveInterval: &keepalive,
 			ReplaceAllowedIPs:           true,
@@ -189,7 +128,6 @@ func wgSync(ctx context.Context, log *slog.Logger, config *Config, client *wgav1
 		}
 
 		shouldPeers[pub.String()] = pc
-
 	}
 
 	log.Debug("creating wgctrl client")

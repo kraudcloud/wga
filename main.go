@@ -1,16 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 func main() {
-	logLevel := 4
+	logLevel := 0
 	if lv := os.Getenv("LOG_LEVEL"); lv != "" {
 		logLevel, _ = strconv.Atoi(lv)
 	}
@@ -21,8 +22,6 @@ func main() {
 			if vCount > 0 {
 				logLevel -= vCount * 4
 			}
-
-			fmt.Println("logLevel", logLevel)
 
 			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 				Level: slog.Level(logLevel),
@@ -35,7 +34,31 @@ func main() {
 		Use:   "ep [name]",
 		Short: "run named WireguardAccessEndpoint",
 		Run: func(cmd *cobra.Command, args []string) {
-			epMain()
+			clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
+			_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
+			if err != nil {
+				slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
+				os.Exit(1)
+			}
+
+			serverAddr := os.Getenv("WGA_SERVER_ADDRESS")
+			if serverAddr == "" {
+				slog.Error("WGA_SERVER_ADDRESS not set")
+				os.Exit(1)
+			}
+
+			allowedIPEnv := os.Getenv("WGA_ALLOWED_IPS")
+			if allowedIPEnv == "" {
+				slog.Error("WGA_ALLOWED_IPS not set")
+				os.Exit(1)
+			}
+
+			epMain(
+				cmd.Context(),
+				clientCIDR,
+				serverAddr,
+				strings.Split(allowedIPEnv, ","),
+			)
 		},
 	}
 	rootCmd.AddCommand(serverCmd)

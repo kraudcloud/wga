@@ -13,7 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kraudcloud/wga/wgav1beta"
+	"github.com/kraudcloud/wga/apis/generated/clientset/versioned"
+	"github.com/kraudcloud/wga/apis/wga.kraudcloud.com/v1beta"
 	"github.com/spf13/cobra"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,15 +67,15 @@ func newPeer(ctx context.Context, name string, rules []string, dns []net.IP) err
 		return fmt.Errorf("wgtypes.NewKey: %w", err)
 	}
 
-	peerValue := wgav1beta.WireguardAccessPeer{
-		Metadata: v1.ObjectMeta{
+	peerValue := v1beta.WireguardAccessPeer{
+		ObjectMeta: v1.ObjectMeta{
 			Name: name,
 		},
 		TypeMeta: v1.TypeMeta{
 			Kind:       "WireguardAccessPeer",
 			APIVersion: "wga.kraudcloud.com/v1beta",
 		},
-		Spec: wgav1beta.WireguardAccessPeerSpec{
+		Spec: v1beta.WireguardAccessPeerSpec{
 			AccessRules:  rules,
 			PublicKey:    keyset.PublicKey().String(),
 			PreSharedKey: pskset.String(),
@@ -86,50 +87,50 @@ func newPeer(ctx context.Context, name string, rules []string, dns []net.IP) err
 		return fmt.Errorf("cannot get client config: %w", err)
 	}
 
-	c, err := wgav1beta.NewForConfig(client)
+	c, err := versioned.NewForConfig(client)
 	if err != nil {
 		return fmt.Errorf("cannot create CRD client: %w", err)
 	}
 
-	created, err := c.CreateWireguardAccessPeer(ctx, peerValue)
+	created, err := c.WgaV1beta().WireguardAccessPeers().Create(ctx, &peerValue, v1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("cannot create peer: %w", err)
 	}
 
-	w, err := c.WatchWireguardAccessPeers(ctx, v1.ListOptions{
+	w, err := c.WgaV1beta().WireguardAccessPeers().Watch(ctx, v1.ListOptions{
 		Watch:           true,
 		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
-		ResourceVersion: created.Metadata.ResourceVersion,
+		ResourceVersion: created.ResourceVersion,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot watch peer: %w", err)
 	}
 
-	var populatedPeer wgav1beta.WireguardAccessPeer
+	var populatedPeer *v1beta.WireguardAccessPeer
 	for event := range w.ResultChan() {
 		if event.Object == nil {
 			continue
 		}
-		peer, ok := event.Object.(*wgav1beta.WireguardAccessPeer)
+		peer, ok := event.Object.(*v1beta.WireguardAccessPeer)
 		if !ok {
 			continue
 		}
 
-		if peer != nil && peer.Status != nil && peer.Status.Address != "" {
-			populatedPeer = *peer
+		if peer.Status != nil {
+			populatedPeer = peer
 			w.Stop()
 			break
 		}
 	}
 
-	if populatedPeer.Status == nil {
+	if populatedPeer == nil {
 		return fmt.Errorf("peer has no status, there was probably an error with the wga server")
 	}
 
-	return fmtPeer(populatedPeer, dns, keyset, pskset)
+	return fmtPeer(*populatedPeer, dns, keyset, pskset)
 }
 
-func fmtPeer(peer wgav1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key) error {
+func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key) error {
 	peers := []wgtypes.Peer{}
 	for _, peer := range peer.Status.Peers {
 		publicKey, err := wgtypes.ParseKey(peer.PublicKey)
@@ -178,7 +179,7 @@ func fmtPeer(peer wgav1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.K
 		},
 		DNS: dns,
 		Device: wgtypes.Device{
-			Name:       peer.Metadata.Name,
+			Name:       peer.Name,
 			PrivateKey: pk,
 			ListenPort: 51820,
 			Peers:      peers,
