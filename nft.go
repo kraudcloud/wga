@@ -90,7 +90,7 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
 
 	for _, peer := range config.Peers {
 		if peer.Status == nil {
-			log.Warn("peer has no status", "peer", peer.Name)
+			// will be reconciled later
 			continue
 		}
 
