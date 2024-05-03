@@ -89,10 +89,15 @@ func OnPeerChange(serverAddr string, allowedIPs []string, clientCIDR *net.IPNet,
 			return nil, nil
 		}
 
-		if peer.Status == nil {
+		if peer.Status == nil || (peer.Labels != nil && peer.Labels[ForceRefreshSpec] == "true") {
 			sip, err := cidr.Host(clientCIDR, generateIndex(clientCIDR))
 			if err != nil {
 				slog.Error(err.Error(), "peer", peer.Name)
+			}
+
+			// remove the force refresh label
+			if peer.Labels != nil {
+				delete(peer.Labels, ForceRefreshSpec)
 			}
 
 			slog.Info("setting peer status", "peer", peer.Name)
@@ -136,7 +141,7 @@ func OnEvent(client *versioned.Clientset, kind string) func(key string, obj runt
 		}
 
 		log.Debug("syncing wg")
-		err = wgSync(log, cfg)
+		err = wgSync(log, cfg, client)
 		if err != nil {
 			log.Error("Error syncing CRDs", "error", err)
 		}

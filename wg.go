@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"log/slog"
@@ -11,12 +12,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kraudcloud/wga/apis/generated/clientset/versioned"
+	"github.com/kraudcloud/wga/apis/wga.kraudcloud.com/v1beta"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const DEVICENAME = "wga"
+const ForceRefreshSpec = "wga.kraudcloud.com/refresh"
 
 // WGConfig is readonly after `wgInit` is called.
 var (
@@ -90,12 +95,25 @@ func wgInit() error {
 	return nil
 }
 
-func wgSync(log *slog.Logger, config *Config) error {
+func wgSync(log *slog.Logger, config *Config, client *versioned.Clientset) error {
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
 	// find out what peers have no `status` and generate their status
 	// this should probably be in the watcher rather than here.
 	log.Debug("syncing peers")
 	for _, peer := range config.Peers {
+		if peer.Status == nil {
+			log.Info("new peer detected, initiating reconcialiation", "peer", peer.Name)
+			client.WgaV1beta().WireguardAccessPeers().Update(context.TODO(), &v1beta.WireguardAccessPeer{
+				TypeMeta: peer.TypeMeta,
+				ObjectMeta: v1.ObjectMeta{
+					Name:   peer.Name,
+					Labels: map[string]string{ForceRefreshSpec: "true"},
+				},
+				Spec: peer.Spec,
+			}, v1.UpdateOptions{})
+			continue
+		}
+
 		log.Info("syncing peer", "peer", peer.Name, "address", peer.Status.Address)
 		snet := net.IPNet{
 			IP:   net.ParseIP(peer.Status.Address),
