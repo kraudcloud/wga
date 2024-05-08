@@ -1,0 +1,14 @@
+apiVersion: wga.kraudcloud.com/v1beta
+kind: WireguardClusterClient
+metadata:
+  name: demo
+spec:
+  address: 192.168.73.2
+  privateKeySecretRef:
+    value: MPKbGn9uV/bWF38A/arcrYlRe1v9tVEq02VuEL7iTFA=
+  server:
+    endpoint: 1.1.1.1:1
+    publicKey: YA8FqEgMZco/GeFc/4CXbQHHL/dKGLhKp2psD2t7EFE=
+    preSharedKey: KMf6k5U67/xb1tR5a4Zjx/IK7IU97VAIGFfZANbBMGI=
+  destinations:
+    - 4.4.4.4/32
