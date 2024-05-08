@@ -2,8 +2,13 @@
 
 docker build . -t ghcr.io/kraudcloud/wga:latest
 kind load docker-image ghcr.io/kraudcloud/wga:latest
-# helm uninstall wga
-helm install wga ./charts/wga --set logLevel=0 --set image.tag=latest
+helm uninstall wga
+helm install wga ./charts/wga \
+    --set endpoint.image.pullPolicy=Never \
+    --set endpoint.image.tag=latest \
+    --set endpoint.address=192.168.1.10 \
+    --set endpoint.clientCIDR=192.168.1.0/24 \
+    --set endpoint.allowedIPs=192.168.1.0/24
 
-kubectl wait --for=condition=Ready pod -l app=wireguard --timeout=30s
-kubectl logs -l app=wireguard --tail=100 -f
+kubectl wait --for=condition=Ready pod -l app=wga-endpoint --timeout=30s
+kubectl logs -l app=wga-endpoint --tail=100 -f

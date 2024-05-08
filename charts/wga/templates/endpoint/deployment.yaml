@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wga-endpoint
+  labels:
+    {{- include "wga.labels" . | nindent 4 -}}
+    {{- if.Values.endpoint.labels }}
+    {{- toYaml .Values.endpoint.labels | nindent 4 -}}
+    {{- end }}
+    app: wga-endpoint
+  {{- if .Values.endpoint.annotations }}
+  annotations:
+  {{- .Values.endpoint.annotations | toYaml | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wga-endpoint
+  template:
+    metadata:
+      labels:
+        app: wga-endpoint
+    spec:
+      serviceAccountName: {{include "wga.serviceAccountName" .}}
+      containers:
+        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.endpoint.image.name -}}:{{- default .Chart.AppVersion .Values.endpoint.image.tag }}"
+          {{- if.Values.endpoint.image.pullPolicy }}
+          imagePullPolicy: {{.Values.endpoint.image.pullPolicy }}
+          {{- end }}
+          name: wga-endpoint
+          args:
+            - ep
+          ports:
+            - containerPort: {{.Values.endpoint.service.port}}
+              name: wireguard
+              protocol: UDP
+          {{- if .Values.endpoint.resources }}
+          resources:
+            {{- toYaml .Values.endpoint.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: WGA_CLIENT_CIDR
+              value: {{.Values.endpoint.clientCIDR}}
+            - name: WGA_SERVER_ADDRESS
+            {{if and (not .Values.endpoint.service.loadBalancerIP) (not .Values.endpoint.address)}}
+            {{- fail "You must set either endpoint.address or endpoint.service.loadBalancerIP"}}
+            {{- end }}
+              value: {{default .Values.endpoint.address .Values.endpoint.service.loadBalancerIP }}
+            - name: WGA_ALLOWED_IPS
+              value: {{join "," .Values.endpoint.allowedIPs}}
+              {{- if .Values.endpoint.logLevel }}
+            - name: LOG_LEVEL
+              value: "{{ .Values.endpoint.logLevel }}"
+              {{- end }}
+            {{- if and .Values.endpoint.resources.limits .Values.endpoint.resources.limits.memory }}
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: wga-endpoint
+                  resource: limits.memory
+            {{- end }}
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+          volumeMounts:
+            - mountPath: /etc/wga/endpoint/
+              name: endpoint
+      restartPolicy: Always
+      volumes:
+        - name: endpoint
+          secret:
+            defaultMode: 420
+            secretName: endpoint

@@ -3,7 +3,8 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: endpoint
+  labels: {{- include "wga.labels" . | nindent 4}}
 stringData:
-  privateKey:     {{ ( include "gen.endpoint.privateKey" . )  }} 
+  privateKey: {{( include "gen.endpoint.privateKey" . )}}
 ---
 

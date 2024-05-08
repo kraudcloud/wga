@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wga-endpoint
+  {{- if.Values.endpoint.service.annotations }}
+  annotations:
+    {{.Values.endpoint.service.annotations | toYaml | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "wga.labels" . | nindent 4}}
+    {{- if.Values.endpoint.service.labels }}
+    {{ toYaml .Values.endpoint.service.labels | nindent 4 }}
+    {{- end }}
+spec:
+  externalTrafficPolicy: Local
+  {{- if .Values.endpoint.service.type }}
+  type: {{ .Values.endpoint.service.type }}
+  {{- end }}
+  {{- if .Values.endpoint.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.endpoint.service.loadBalancerIP }}
+  {{- end }}
+  {{- if .Values.endpoint.service.loadBalancerClass }}
+  loadBalancerClass: {{ .Values.endpoint.service.loadBalancerClass }}
+  {{- end }}
+  type: {{ .Values.endpoint.service.type }}
+  ports:
+  - port: {{ .Values.endpoint.service.port }}
+    protocol: UDP
+    targetPort: {{ .Values.endpoint.service.port }}
+  selector:
+    app: wga-endpoint

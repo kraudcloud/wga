@@ -7,3 +7,4 @@ Dockerfile
 *.yaml
 *.md
 *.nix
+*.sh

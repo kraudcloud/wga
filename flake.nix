@@ -1,8 +1,11 @@
 {
   inputs.nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.*.tar.gz";
+  inputs.knixpkgs.url = "https://github.com/Karitham/knixpkgs/archive/master.tar.gz";
+  inputs.knixpkgs.inputs.nixpkgs.follows = "nixpkgs";
   outputs = {
     self,
     nixpkgs,
+    knixpkgs,
   }: let
     goVersion = 22; # Change this to update the whole stack
     overlays = [(final: prev: {go = prev."go_1_${toString goVersion}";})];
@@ -23,6 +26,7 @@
           kubernetes-helm
           minikube
           kind
+          knixpkgs.packages.${system}.helm-readme-generator
         ];
       };
     });

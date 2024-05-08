@@ -1,40 +1,71 @@
-# service through which to expose wga
-service:
-  type: "LoadBalancer"
-  # should expose wga to the public internet
-  loadBalancerClass: null
-  # is the loadBalancerIP to use for the service. Should be the same as `endpoint.address`.
-  loadBalancerIP: null
-  annotations: {}
+## @section Global parameters
+## Global Docker image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
+##
 
+## @param global.imageRegistry Global Docker image registry
+global:
+  imageRegistry: "ghcr.io/kraudcloud"
+
+## @section Common parameters
+##
+
+## @param endpoint.clientCIDR CIDR range for client IPs. This is the range from which the wga pod will allocate IPs.
+## @param endpoint.address Public address for the wireguard interface. Prefer using endpoint.service.loadBalancerIP
+## @param endpoint.allowedIPs List of IPs that are allowed to connect to from the wireguard interface
+## @param endpoint.logLevel Log level for the wireguard interface. error: 8, warn: 4, info: 0, debug: -4
+## @param endpoint.annotations Additional annotations for the wireguard interface
+## @param endpoint.labels Additional labels for the wireguard interface
+##
 endpoint:
-  # wireguard port to serve on
-  port: 51820
-  # clientCIDR is the range allocatable for clients.
-  # wga will allocate from this prefix with the CIDR.
-  clientCIDR: fdfd::/24
-  # address is the public address for the wireguard interface
-  address: fdfd::1
-  # allowedIPs is the list of IPs that are allowed to connect to from the wireguard interface
-  # these represent the local service from the wga pod pov.
-  allowedIPs:
-    - fdfd:00ff::/24
+  clientCIDR: ""
+  address: ""
+  allowedIPs: ""
+  logLevel: 0
+  annotations: {}
+  labels: {}
 
-# logLevel represents how verbose logs are.
-# levels are in increments of 4.
-#   8  Error
-#   4  Warn
-#   0  Info
-#   -4 Debug
-logLevel: 0
+  ## @param endpoint.service.type Kubernetes Service type.
+  ## @param endpoint.service.loadBalancerClass Kubernetes LoadBalancerClass to use
+  ## @param endpoint.service.loadBalancerIP Kubernetes LoadBalancerIP to use
+  ## @param endpoint.service.port Kubernetes Service port
+  ## @param endpoint.service.annotations Additional annotations for the Service
+  ## @param endpoint.service.labels Additional labels for the Service
+  ##
+  service:
+    type: "LoadBalancer"
+    loadBalancerClass: ""
+    loadBalancerIP: ""
+    port: 51820
+    annotations: {}
+    labels: {}
 
-# image represents the docker image to use for the wga pod.
-image:
-  # tag is automatically generated from the wga-chart version used. You can still override it
-  tag:
-  repository: ghcr.io/kraudcloud/wga
+  ## @param endpoint.image.name endpoint image name
+  ## @param endpoint.image.tag endpoint image tag
+  ## @param endpoint.image.pullPolicy Image pull policy
+  ##
+  image:
+    name: wga
+    tag: ""
+    pullPolicy: ""
 
-# serviceAccount is required for wga to edit wgaps and wgars.
+  ## @param endpoint.resources.requests.memory Memory requests for the container
+  ## @param endpoint.resources.limits.memory Memory limits for the container
+  ## @param endpoint.resources.requests.cpu CPU requests for the container
+  ## @param endpoint.resources.limits.cpu CPU limits for the container
+  ##
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "500m"
+    limits:
+      memory: "128Mi"
+      cpu: "500m"
+
+## @param serviceAccount.create Specifies whether a service account should be created. A service is required for the wga to communicate with the Kubernetes API.
+## @param serviceAccount.name The name of the service account to use. If not set and create is true, a name is generated using the fullname template.
+##
 serviceAccount:
   create: true
-  name:
+  name: ""
