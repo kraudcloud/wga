@@ -1,4 +1,7 @@
-wireguard access for k8s
-========================
+![beaver logo](docs/bobr.png?raw=true)
 
-simple wireguard access server for k8s
+BOBR
+====
+
+
+Wireguard Access to kubernetes services
