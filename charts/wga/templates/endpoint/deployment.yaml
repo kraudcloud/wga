@@ -36,10 +36,8 @@ spec:
             - containerPort: {{.Values.endpoint.service.port}}
               name: wireguard
               protocol: UDP
-          {{- if .Values.endpoint.resources }}
           resources:
             {{- toYaml .Values.endpoint.resources | nindent 12 }}
-          {{- end }}
           env:
             - name: WGA_CLIENT_CIDR
               value: {{.Values.endpoint.clientCIDR}}

@@ -63,6 +63,56 @@ endpoint:
       memory: "128Mi"
       cpu: "500m"
 
+## @param web.image.name Image name for the web component
+## @param web.image.tag Image tag for the web component
+## @param web.image.pullPolicy Image pull policy for the web component
+##
+web:
+  image:
+    name: "wga-frontend"
+    tag: "main"
+    pullPolicy: ""
+
+  ## @param web.resources CPU/Memory resource requests/limits for the web component
+  ##
+  resources: {}
+
+  ## @param web.authId Authentik ID for the web component
+  ## @param web.authSecret Authentik secret for the web component
+  ## @param web.authIssuer Authentik issuer endpoint
+  ## @param web.authAuthorization Authentik authorization endpoint
+  ## @param web.debug Debug debug logging based on js-debug
+  ##
+  authId: ""
+  authSecret: ""
+  authIssuer: ""
+  authAuthorization: ""
+  debug: "*"
+
+  ## @param web.service.type Kubernetes Service type for the web component
+  ##
+  service:
+    type: "ClusterIP"
+
+  ## @param web.annotations Additional annotations for the web component
+  ## @param web.labels Additional labels for the web component
+  ##
+  annotations: {}
+  labels: {}
+
+## @param ingress.enabled Enable ingress resource for the web component
+## @param ingress.annotations Additional annotations for the Ingress resource
+## @param ingress.hosts Ingress hosts for the web component
+## @param ingress.tls Ingress TLS configuration
+## @param ingress.className Ingress class name for the web component
+##
+ingress:
+  enabled: false
+  annotations: {}
+  hosts: []
+  tls: []
+  className: ""
+
 ## @param serviceAccount.create Specifies whether a service account should be created. A service is required for the wga to communicate with the Kubernetes API.
 ## @param serviceAccount.name The name of the service account to use. If not set and create is true, a name is generated using the fullname template.
 ##

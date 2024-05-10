@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wga-web
+  labels:
+    {{- include "wga.labels" . | nindent 4 -}}
+    {{- if .Values.web.labels }}
+    {{- toYaml .Values.web.labels | nindent 4 -}}
+    {{- end }}
+    app: wga-web
+  {{- if .Values.web.annotations }}
+  annotations:
+  {{- .Values.web.annotations | toYaml | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wga-web
+  template:
+    metadata:
+      labels:
+        app: wga-web
+    spec:
+      serviceAccountName: {{include "wga.serviceAccountName" .}}
+      containers:
+        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.web.image.name -}}:{{- .Values.web.image.tag }}"
+          {{- if .Values.web.image.pullPolicy }}
+          imagePullPolicy: {{.Values.web.image.pullPolicy }}
+          {{- end }}
+          name: wga-web
+          ports:
+            - containerPort: 3000
+              name: web
+              protocol: TCP
+          resources:
+          {{- toYaml .Values.web.resources | nindent 12 }}
+          env:
+            - name: AUTHENTIK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wga-web-secret
+                  key: authentik-secret
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wga-web-secret
+                  key: auth-secret
+            - name: DEBUG
+              value: {{default "*" .Values.web.debug | quote}}
+            - name: AUTHENTIK_ID
+              value: {{.Values.web.authId | quote}}
+            - name: AUTHENTIK_ISSUER
+              value: {{.Values.web.authIssuer | quote}}
+            - name: AUTH_AUTHORIZATION
+              value: {{.Values.web.authAuthorization | quote}}
+            {{- if .Values.ingress.enabled }}
+            - name: ORIGIN
+              value: "https://{{- .Values.ingress.hosts | first}}"
+            {{- end }}
