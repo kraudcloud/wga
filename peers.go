@@ -35,6 +35,7 @@ func peerCmd() *cobra.Command {
 		Aliases: []string{"p", "peers"},
 	}
 
+	var formatAsWGC string
 	add := &cobra.Command{
 		Use:   "add [name]",
 		Short: "add a WireguardAccessPeer",
@@ -42,7 +43,7 @@ func peerCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			err := newPeer(ctx, args[0], rules, dns)
+			err := newPeer(ctx, args[0], rules, dns, formatAsWGC)
 			if err != nil {
 				slog.Error(err.Error())
 				os.Exit(1)
@@ -51,12 +52,13 @@ func peerCmd() *cobra.Command {
 		Aliases: []string{"new"},
 	}
 	add.Flags().StringSliceVarP(&rules, "rules", "r", rules, "rules to apply to this peer")
+	add.Flags().StringVar(&formatAsWGC, "wgc", "", "format as a WireguardClusterClient.yaml")
 
 	cmd.AddCommand(add)
 	return cmd
 }
 
-func newPeer(ctx context.Context, name string, rules []string, dns []net.IP) error {
+func newPeer(ctx context.Context, name string, rules []string, dns []net.IP, formatAsWGC string) error {
 	keyset, err := wgtypes.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("wgtypes.NewKey: %w", err)
@@ -127,10 +129,10 @@ func newPeer(ctx context.Context, name string, rules []string, dns []net.IP) err
 		return fmt.Errorf("peer has no status, there was probably an error with the wga server")
 	}
 
-	return fmtPeer(*populatedPeer, dns, keyset, pskset)
+	return fmtPeer(*populatedPeer, dns, keyset, pskset, formatAsWGC)
 }
 
-func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key) error {
+func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key, formatAsWGC string) error {
 	peers := []wgtypes.Peer{}
 	for _, peer := range peer.Status.Peers {
 		publicKey, err := wgtypes.ParseKey(peer.PublicKey)
@@ -173,6 +175,7 @@ func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key)
 
 	oubuf := &strings.Builder{}
 	err := Format(oubuf, ConfigFile{
+		Name: formatAsWGC,
 		Address: &net.IPNet{
 			IP:   ip,
 			Mask: mask(ip),

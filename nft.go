@@ -38,7 +38,7 @@ func nftInit() {
 	}
 }
 
-func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
+func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName string) {
 	ruleNameToDestinations := make(map[string][]net.IPNet)
 	for _, rr := range config.Rules {
 
@@ -69,7 +69,7 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
 
 	log.Debug("table checked or created")
 
-	chain, err := checkOrCreateWGAIngressChain(ctx, nft, table, DEVICENAME)
+	chain, err := checkOrCreateWGAIngressChain(ctx, nft, table, deviceName)
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +115,7 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config) {
 					continue
 				}
 
-				cmd := exec.CommandContext(ctx, "nft", "add", "rule", "netdev", "wga", DEVICENAME,
+				cmd := exec.CommandContext(ctx, "nft", "add", "rule", "netdev", "wga", deviceName,
 					"ip6", "saddr", snet.String(),
 					"ip6", "daddr", dnet.String(),
 					"counter", "accept", "comment", comment)
@@ -173,7 +173,7 @@ func checkOrCreateTable(nft *nftables.Conn) (*nftables.Table, error) {
 	}), nft.Flush()
 }
 
-func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table *nftables.Table, device string) (
+func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table *nftables.Table, deviceName string) (
 	*nftables.Chain, error,
 ) {
 	chains, err := nft.ListChains()
@@ -182,12 +182,12 @@ func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table
 	}
 
 	for _, c := range chains {
-		if c.Name == device && c.Table.Name == table.Name {
+		if c.Name == deviceName && c.Table.Name == table.Name {
 			return c, nil
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, "nft", "add", "chain", "netdev", DEVICENAME, device, "{ type filter hook ingress device "+device+" priority 0 ; policy drop; }")
+	cmd := exec.CommandContext(ctx, "nft", "add", "chain", "netdev", deviceName, deviceName, "{ type filter hook ingress device "+deviceName+" priority 0 ; policy drop; }")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -201,7 +201,7 @@ func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table
 	}
 
 	for _, c := range chains {
-		if c.Name == device && c.Table.Name == table.Name {
+		if c.Name == deviceName && c.Table.Name == table.Name {
 			return c, nil
 		}
 	}

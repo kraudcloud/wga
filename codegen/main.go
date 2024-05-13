@@ -16,6 +16,7 @@ func main() {
 				Types: []interface{}{
 					v1beta.WireguardAccessPeer{},
 					v1beta.WireguardAccessRule{},
+					v1beta.WireguardClusterClient{},
 				},
 				GenerateTypes:     true,
 				GenerateClients:   true,

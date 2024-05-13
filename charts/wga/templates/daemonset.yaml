@@ -1,0 +1,45 @@
+{{ if .clusterClient.enable }}
+---
+apiVersion: apps/v1
+kind: Daemonset
+metadata:
+  name: wgc
+  labels:
+    app: wireguardclusterclient
+spec:
+  template:
+    metadata:
+      labels:
+        app: wireguard
+    spec:
+      serviceAccountName: {{include "wga.serviceAccountName" .}}
+      hostNetwork: true
+      containers:
+        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.endpoint.image.name -}}:{{- default .Chart.AppVersion .Values.endpoint.image.tag }}"
+          {{- if.Values.endpoint.image.pullPolicy }}
+          imagePullPolicy: {{.Values.endpoint.image.pullPolicy }}
+          {{- end }}
+          name: wgc
+          args:
+            - clusterclient
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "500m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+            env:
+              - name: GOMEMLIMIT
+                valueFrom:
+                  resourceFieldRef:
+                    containerName: wgc
+                    resource: limits.memory
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+      restartPolicy: Always
+{{ end }}

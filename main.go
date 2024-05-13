@@ -62,6 +62,18 @@ func main() {
 		},
 	}
 	rootCmd.AddCommand(serverCmd)
+
+	wgcCmd := &cobra.Command{
+		Use:   "clusterclient",
+		Short: "run ClusterClient",
+		Run: func(cmd *cobra.Command, args []string) {
+			wgcMain(
+				cmd.Context(),
+			)
+		},
+	}
+	rootCmd.AddCommand(wgcCmd)
+
 	rootCmd.AddCommand(peerCmd())
 
 	if err := rootCmd.Execute(); err != nil {

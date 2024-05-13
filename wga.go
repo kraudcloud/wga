@@ -29,7 +29,7 @@ var (
 	WGInitOnce = sync.Once{}
 )
 
-func wgInit() error {
+func wgaInit() error {
 	slog.Info("create wg", "interface", DEVICENAME)
 
 	// delete old link
@@ -95,7 +95,7 @@ func wgInit() error {
 	return nil
 }
 
-func wgSync(log *slog.Logger, config *Config, client *versioned.Clientset) error {
+func wgaSync(log *slog.Logger, config *Config, client *versioned.Clientset) error {
 	shouldPeers := make(map[string]wgtypes.PeerConfig, 0)
 	// find out what peers have no `status` and generate their status
 	// this should probably be in the watcher rather than here.

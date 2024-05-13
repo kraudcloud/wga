@@ -1,0 +1,91 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: wireguardclusterclients.wga.kraudcloud.com
+spec:
+  group: wga.kraudcloud.com
+  versions:
+    - name: v1beta
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: PublicKey
+          type: string
+          description: our publickey
+          jsonPath: .status.publicKey
+        - name: Routes
+          type: string
+          description: List of destination IP addresses or CIDRs
+          jsonPath: .spec.routes
+        - name: Server
+          type: string
+          description: The server endpoint
+          jsonPath: .spec.server.endpoint
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            status:
+              type: object
+              properties:
+                publicKey:
+                  type: string
+            spec:
+              type: object
+              properties:
+                address:
+                  type: string
+                  description: local inner ip address
+                privateKeySecretRef:
+                  type: object
+                  description: a reference to the secret containing the private key. will be created if it doesnt exist
+                  properties:
+                    name:
+                      type: string
+                      description: name of the secret. otherwise will be wgc-name-of-wgc
+                    namespace: 
+                      type: string
+                      description: namespace for the secret. default is the same as the daemonset
+                    key:
+                      type: string
+                      default: privateKey
+                    value:
+                      type: string
+                      description: specifying a value here will be used to create the referenced secret if doesnt exist
+                server:
+                  type: object
+                  properties:
+                    endpoint:
+                      type: string
+                      description: remote endpoint ip:port
+                    publicKey:
+                      type: string
+                      description: remote public key
+                    preSharedKey:
+                      type: string
+                      pattern: ^[A-Za-z0-9+/=]+$
+                      description: Pre-shared key
+                  required:
+                    - endpoint
+                    - publicKey
+                routes:
+                  type: array
+                  description: CIDRs to route into the tunnel
+                  items:
+                    type: string
+                persistentKeepalive:
+                  type: integer
+                  description: persistent keepalive interval in seconds
+              required:
+                - address
+                - server
+                - routes
+  scope: Cluster
+  names:
+    plural:   wireguardclusterclients
+    singular: wireguardclusterclient
+    kind: WireguardClusterClient
+    shortNames:
+      - wgc
+      - wgcs
