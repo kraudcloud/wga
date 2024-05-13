@@ -44,9 +44,6 @@ spec:
                     name:
                       type: string
                       description: name of the secret. otherwise will be wgc-name-of-wgc
-                    namespace: 
-                      type: string
-                      description: namespace for the secret. default is the same as the daemonset
                     key:
                       type: string
                       default: privateKey

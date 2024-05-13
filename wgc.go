@@ -9,6 +9,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strings"
 	"time"
 )
@@ -85,10 +86,16 @@ func wgcSync(wgc []v1beta.WireguardClusterClient, client *versioned.Clientset) e
 			routes = append(routes, *snet)
 		}
 
+		epa, err := netip.ParseAddrPort(wgc.Spec.Server.Endpoint)
+		if err != nil {
+			return fmt.Errorf("error parsing endpoint: %w", err)
+		}
+
 		pc := wgtypes.PeerConfig{
 			ReplaceAllowedIPs: true,
 			PublicKey:         pk,
 			AllowedIPs:        routes,
+			Endpoint:          net.UDPAddrFromAddrPort(epa),
 		}
 
 		if wgc.Spec.Server.PreSharedKey != "" {

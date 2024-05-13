@@ -90,12 +90,7 @@ func OnWireguardClusterClientChange(k8api *kubernetes.Clientset, client *version
 				wg.Spec.PrivateKeySecretRef.Name = skName
 				updateWgc = true
 			}
-			skNamespace := wg.Spec.PrivateKeySecretRef.Namespace
-			if skNamespace == "" {
-				skNamespace = GetK8sNamespace()
-				wg.Spec.PrivateKeySecretRef.Namespace = skNamespace
-				updateWgc = true
-			}
+			skNamespace := GetK8sNamespace()
 			skKey := wg.Spec.PrivateKeySecretRef.Key
 			if skKey == "" {
 				skKey = "privateKey"

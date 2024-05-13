@@ -61,7 +61,7 @@ type WireguardClusterClient struct {
 
 type WireguardClusterClientSpec struct {
 	Address             string                               `yaml:"address" json:"address"`
-	PrivateKeySecretRef WireguardClusterClientSpecPrivateKey `yaml:"privateKeySecretRef" json:"privateKey"`
+	PrivateKeySecretRef WireguardClusterClientSpecPrivateKey `yaml:"privateKeySecretRef" json:"privateKeySecretRef"`
 	Server              WireguardClusterClientSpecServer     `yaml:"server" json:"server"`
 	Routes              []string                             `yaml:"routes" json:"routes"`
 	PersistentKeepalive int                                  `yaml:"persistentKeepalive,omitempty" json:"persistentKeepalive,omitempty"`
@@ -72,10 +72,9 @@ type WireguardClusterClientStatus struct {
 }
 
 type WireguardClusterClientSpecPrivateKey struct {
-	Name      string `yaml:"name,omitempty" json:"name,omitempty"`
-	Key       string `yaml:"key,omitempty" json:"key,omitempty"`
-	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
-	Value     string `yaml:"value,omitempty" json:"value,omitempty"`
+	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
+	Key   string `yaml:"key,omitempty" json:"key,omitempty"`
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
 }
 type WireguardClusterClientSpecServer struct {
 	Endpoint     string `yaml:"endpoint" json:"endpoint"`
