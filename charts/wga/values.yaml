@@ -119,9 +119,8 @@ ingress:
 serviceAccount:
   create: true
   name: ""
-  name:
 
-# @param clusterClient a daemonset to access other clusters wga
-# @param clusterClient.enable Enable clusterClient
+## @param clusterClient.enable enable a daemonset to access other clusters wga via WireguardClusterClient CRD
+##
 clusterClient:
   enable: false

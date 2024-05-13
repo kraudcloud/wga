@@ -56,3 +56,4 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 | `ingress.className`                  | Ingress class name for the web component                                                                                         | `""`           |
 | `serviceAccount.create`              | Specifies whether a service account should be created. A service is required for the wga to communicate with the Kubernetes API. | `true`         |
 | `serviceAccount.name`                | The name of the service account to use. If not set and create is true, a name is generated using the fullname template.          | `""`           |
+| `clusterClient.enable`               | enable a daemonset to access other clusters wga via WireguardClusterClient CRD                                                   | `false`        |
