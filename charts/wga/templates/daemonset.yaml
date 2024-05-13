@@ -1,16 +1,19 @@
-{{ if .clusterClient.enable }}
+{{ if .Values.clusterClient.enable }}
 ---
 apiVersion: apps/v1
-kind: Daemonset
+kind: DaemonSet
 metadata:
   name: wgc
   labels:
     app: wireguardclusterclient
 spec:
+  selector:
+      matchLabels:
+        app: wireguardclusterclient
   template:
     metadata:
       labels:
-        app: wireguard
+        app: wireguardclusterclient
     spec:
       serviceAccountName: {{include "wga.serviceAccountName" .}}
       hostNetwork: true
