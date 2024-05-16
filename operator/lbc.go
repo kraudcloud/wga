@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/apparentlymart/go-cidr/cidr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,6 +25,9 @@ const (
 	// It avoids having the user set up a complicated mess of cillium/kubevip/metallb just for providing ips
 	// to services in the intranet.
 	LoadBalancerClass = "wga.kraudcloud.com/intranet"
+	// LoadBalancerIPs is a comma separated list of ips that the user wants to assign to the service.
+	// It should respect the ip families of the service.
+	LoadBalancerIPs = "wga.kraudcloud.com/loadBalancerIPs"
 )
 
 var lbcPredicate = &predicate.TypedFuncs[client.Object]{
@@ -70,7 +75,6 @@ func isLoadBalancerClass(service *corev1.Service) bool {
 func hasNoIP(service *corev1.Service) bool {
 	return service == nil || len(service.Status.LoadBalancer.Ingress) == 0 ||
 		service.Status.LoadBalancer.Ingress[0].IP == ""
-
 }
 
 func registerLoadBalancerReconciler(mgr ctrl.Manager, serviceNets []net.IPNet, log *slog.Logger) {
@@ -109,25 +113,102 @@ type LoadBalancerClassReconciler struct {
 func (r *LoadBalancerClassReconciler) Reconcile(ctx context.Context, svc *corev1.Service) (reconcile.Result, error) {
 	// We know we need to assign an ip.
 	if len(svc.Status.LoadBalancer.Ingress) != 0 {
-		return reconcile.Result{}, reconcile.TerminalError(fmt.Errorf("service already has an ip"))
+		return reconcile.Result{}, nil
 	}
 
 	r.log.Info("assigning ip to service", "service", svc.Name)
 
-	ip := net.ParseIP(svc.Spec.LoadBalancerIP)
-	var err error
-	// if the user didn't specify an ip, allocate one
-	if ip == nil {
-		// pick a random net
-		net := randPick(r.serviceNets)
-		// allocate a rand ip in that net
-		ip, err = cidr.HostBig(&net, generateIndex(&net))
+	var generated *net.IP
+	serviceIPs := []net.IP{}
+	if len(svc.Annotations[LoadBalancerIPs]) == 0 {
+		ip, err := cidr.HostBig(&r.serviceNets[0], generateIndex(&r.serviceNets[0]))
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to allocate ip: %w", err)
+			return reconcile.Result{}, fmt.Errorf("unable to generate ip: %w", err)
+		}
+
+		generated = &ip
+		serviceIPs = append(serviceIPs, ip)
+	} else {
+		ips := strings.Split(svc.Annotations[LoadBalancerIPs], ",")
+		for _, ip := range ips {
+			ip := net.ParseIP(strings.TrimSpace(ip))
+			if ip == nil {
+				return reconcile.Result{}, reconcile.TerminalError(fmt.Errorf("invalid ip: %s", ip))
+			}
+
+			serviceIPs = append(serviceIPs, ip)
 		}
 	}
 
-	svc.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: ip.String()}}
+	// check for conflicts. Query all services in the cluster.
+	services := &corev1.ServiceList{}
+	err := r.client.List(ctx, services)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("unable to list services: %w", err)
+	}
+
+	for _, service := range services.Items {
+		if service.UID == svc.UID {
+			continue
+		}
+
+		for _, ingress := range service.Status.LoadBalancer.Ingress {
+			for _, ip := range serviceIPs {
+				if ingress.IP == ip.String() {
+					// retry if the one we generated conflicts
+					if generated != nil && ip.String() == generated.String() {
+						return reconcile.Result{}, fmt.Errorf("generated ip %s is already assigned to another service", ip.String())
+					}
+
+					if len(svc.Status.Conditions) > 0 && svc.Status.Conditions[len(svc.Status.Conditions)-1].Reason == "InvalidLoadBalancerIP" {
+						return reconcile.Result{}, fmt.Errorf("generated ip %s is already assigned to another service", ip.String())
+					}
+
+					svc.Status.Conditions = append(svc.Status.Conditions, metav1.Condition{
+						Type:               "Failed",
+						Status:             metav1.ConditionFalse,
+						ObservedGeneration: svc.Generation,
+						LastTransitionTime: metav1.Now(),
+						Reason:             "InvalidLoadBalancerIP",
+						Message:            fmt.Sprintf("The requested ip (%s) is already assigned to another service", ip.String()),
+					})
+					err := r.client.Status().Update(ctx, svc)
+					if err != nil {
+						return reconcile.Result{}, fmt.Errorf("unable to update service status: %w", err)
+					}
+
+					return reconcile.Result{}, nil
+				}
+			}
+		}
+	}
+
+	// now that we figured all ips we have are unique, let's assign them.
+	ports := []corev1.PortStatus{}
+	for _, port := range svc.Spec.Ports {
+		ports = append(ports, corev1.PortStatus{
+			Protocol: port.Protocol,
+			Port:     port.Port,
+		})
+	}
+
+	for _, ip := range serviceIPs {
+		svc.Status.LoadBalancer.Ingress = append(svc.Status.LoadBalancer.Ingress, corev1.LoadBalancerIngress{
+			IP:    ip.String(),
+			Ports: ports,
+		})
+	}
+
+	// set additional status fields
+	svc.Status.Conditions = append(svc.Status.Conditions, metav1.Condition{
+		Type:               "Active",
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: svc.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "LoadBalancerReady",
+		Message:            "LoadBalancer is ready",
+	})
+
 	err = r.client.Status().Update(ctx, svc)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to update service status: %w", err)

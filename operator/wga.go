@@ -49,7 +49,7 @@ func init() {
 	v1beta.SchemeBuilder.AddToScheme(scheme.Scheme)
 }
 
-func RunWGA(ctx context.Context, config *rest.Config, servicesNet []net.IPNet, peersNet []net.IPNet, serverAddr string) {
+func RunWGA(ctx context.Context, config *rest.Config, serviceNets []net.IPNet, peerNets []net.IPNet, serverAddr string) {
 	mgr, err := manager.New(config, manager.Options{})
 	if err != nil {
 		slog.Error("unable to create new manager", "err", err)
@@ -58,8 +58,8 @@ func RunWGA(ctx context.Context, config *rest.Config, servicesNet []net.IPNet, p
 
 	log.SetLogger(logr.FromSlogHandler(slog.With("component", "wga-controller").Handler()))
 
-	registerLoadBalancerReconciler(mgr, servicesNet, slog.Default())
-	registerPeerReconciler(mgr, servicesNet, peersNet, serverAddr, slog.Default())
+	registerLoadBalancerReconciler(mgr, serviceNets, slog.Default())
+	registerPeerReconciler(mgr, serviceNets, peerNets, serverAddr, slog.Default())
 
 	if err = mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
 		slog.Error("unable to set up health check", "err", err)
