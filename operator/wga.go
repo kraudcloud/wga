@@ -58,6 +58,7 @@ func RunWGA(ctx context.Context, config *rest.Config, servicesNet []net.IPNet, p
 
 	log.SetLogger(logr.FromSlogHandler(slog.With("component", "wga-controller").Handler()))
 
+	registerLoadBalancerReconciler(mgr, servicesNet, slog.Default())
 	registerPeerReconciler(mgr, servicesNet, peersNet, serverAddr, slog.Default())
 
 	if err = mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
