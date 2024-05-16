@@ -7,7 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kraudcloud/wga/operator"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func main() {
@@ -53,12 +56,17 @@ func main() {
 				os.Exit(1)
 			}
 
-			epMain(
-				cmd.Context(),
-				clientCIDR,
-				serverAddr,
-				strings.Split(allowedIPEnv, ","),
-			)
+			allowedIPs := strings.Split(allowedIPEnv, ",")
+			allowedIPNets := []net.IPNet{}
+			for _, ip := range allowedIPs {
+				_, ipnet, err := net.ParseCIDR(ip)
+				if err != nil {
+					slog.Error("cannot parse allowed ip", "allowedIP", ip, "err", err.Error())
+				}
+				allowedIPNets = append(allowedIPNets, *ipnet)
+			}
+
+			operator.RunWGA(cmd.Context(), clientConfig(), allowedIPNets, []net.IPNet{*clientCIDR}, serverAddr)
 		},
 	}
 	rootCmd.AddCommand(serverCmd)
@@ -67,9 +75,7 @@ func main() {
 		Use:   "clusterclient",
 		Short: "run ClusterClient",
 		Run: func(cmd *cobra.Command, args []string) {
-			wgcMain(
-				cmd.Context(),
-			)
+			operator.RunWGC(cmd.Context(), clientConfig())
 		},
 	}
 	rootCmd.AddCommand(wgcCmd)
@@ -80,4 +86,28 @@ func main() {
 		slog.Error(err.Error())
 		os.Exit(1)
 	}
+}
+
+// clientConfig loads the config either from kubeconfig or falls back to the cluster
+// the k8s client has a similar function but it logs stuff when trying to fallback.
+func clientConfig() *rest.Config {
+	if kubeconfig := os.Getenv("KUBECONFIG"); kubeconfig != "" {
+		c, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}, &clientcmd.ConfigOverrides{},
+		).ClientConfig()
+		if err != nil {
+			slog.Error("cannot load kubeconfig", "kubeconfig", kubeconfig, "err", err.Error())
+			os.Exit(1)
+		}
+
+		return c
+	}
+
+	c, err := rest.InClusterConfig()
+	if err != nil {
+		slog.Error("cannot load in-cluster config", "err", err.Error())
+		os.Exit(1)
+	}
+
+	return c
 }

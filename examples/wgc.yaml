@@ -10,5 +10,5 @@ spec:
     endpoint: 1.1.1.1:1
     publicKey: YA8FqEgMZco/GeFc/4CXbQHHL/dKGLhKp2psD2t7EFE=
     preSharedKey: KMf6k5U67/xb1tR5a4Zjx/IK7IU97VAIGFfZANbBMGI=
-  destinations:
+  routes:
     - 4.4.4.4/32

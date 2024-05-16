@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -13,11 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kraudcloud/wga/apis/generated/clientset/versioned"
 	"github.com/kraudcloud/wga/apis/wga.kraudcloud.com/v1beta"
+	"github.com/kraudcloud/wga/operator"
 	"github.com/spf13/cobra"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func peerCmd() *cobra.Command {
@@ -43,7 +45,7 @@ func peerCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			err := newPeer(ctx, args[0], rules, dns, formatAsWGC)
+			err := newPeer(ctx, args[0], rules, dns, formatAsWGC, clientConfig())
 			if err != nil {
 				slog.Error(err.Error())
 				os.Exit(1)
@@ -58,7 +60,7 @@ func peerCmd() *cobra.Command {
 	return cmd
 }
 
-func newPeer(ctx context.Context, name string, rules []string, dns []net.IP, formatAsWGC string) error {
+func newPeer(ctx context.Context, name string, rules []string, dns []net.IP, formatAsWGC string, config *rest.Config) error {
 	keyset, err := wgtypes.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("wgtypes.NewKey: %w", err)
@@ -84,25 +86,18 @@ func newPeer(ctx context.Context, name string, rules []string, dns []net.IP, for
 		},
 	}
 
-	client, err := clientConfig()
+	c, err := client.NewWithWatch(config, client.Options{})
 	if err != nil {
-		return fmt.Errorf("cannot get client config: %w", err)
+		return fmt.Errorf("cannot create client: %w", err)
 	}
 
-	c, err := versioned.NewForConfig(client)
-	if err != nil {
-		return fmt.Errorf("cannot create CRD client: %w", err)
-	}
-
-	created, err := c.WgaV1beta().WireguardAccessPeers().Create(ctx, &peerValue, v1.CreateOptions{})
+	err = c.Create(ctx, &peerValue)
 	if err != nil {
 		return fmt.Errorf("cannot create peer: %w", err)
 	}
 
-	w, err := c.WgaV1beta().WireguardAccessPeers().Watch(ctx, v1.ListOptions{
-		Watch:           true,
-		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
-		ResourceVersion: created.ResourceVersion,
+	w, err := c.Watch(ctx, &v1beta.WireguardAccessPeerList{}, client.MatchingFieldsSelector{
+		Selector: fields.AndSelectors(fields.OneTermEqualSelector("metadata.name", name)),
 	})
 	if err != nil {
 		return fmt.Errorf("cannot watch peer: %w", err)
@@ -178,7 +173,7 @@ func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key,
 		Name: formatAsWGC,
 		Address: &net.IPNet{
 			IP:   ip,
-			Mask: mask(ip),
+			Mask: operator.FullMask(ip),
 		},
 		DNS: dns,
 		Device: wgtypes.Device{
@@ -194,10 +189,6 @@ func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key,
 
 	fmt.Printf("%s\n", oubuf.String())
 	return nil
-}
-
-func mask(ip net.IP) net.IPMask {
-	return net.IPMask(bytes.Repeat([]byte{0xff}, len(ip)))
 }
 
 func newPassword() string {

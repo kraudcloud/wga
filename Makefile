@@ -6,8 +6,4 @@ wga: .PHONY
 readme: .PHONY
 	readme-generator --values ./charts/wga/values.yaml --readme ./README.md
 
-gen: .PHONY
-	go run codegen/main.go
-
-
 .PHONY: 

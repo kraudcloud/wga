@@ -83,8 +83,10 @@ var funcs = template.FuncMap{
 	},
 }
 
-var wgFileTemplate = template.Must(template.New("wg-file").Funcs(funcs).Parse(WgFile))
-var wgcFileTemplate = template.Must(template.New("wgc-yaml").Funcs(funcs).Parse(WgcFile))
+var (
+	wgFileTemplate  = template.Must(template.New("wg-file").Funcs(funcs).Parse(WgFile))
+	wgcFileTemplate = template.Must(template.New("wgc-yaml").Funcs(funcs).Parse(WgcFile))
+)
 
 type ConfigFile struct {
 	Address *net.IPNet
