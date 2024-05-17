@@ -12,8 +12,8 @@ spec:
       additionalPrinterColumns:
         - name: PublicKey
           type: string
-          description: our publickey
-          jsonPath: .status.publicKey
+          description: our publickeys
+          jsonPath: ".status.peers[*]['nodeName','publicKey']"
         - name: Routes
           type: string
           description: List of destination IP addresses or CIDRs
@@ -25,18 +25,31 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
+          required:
+            - spec
           properties:
             status:
               type: object
+              required:
+                - peers
               properties:
-                publicKey:
-                  type: string
+                peers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      publicKey:
+                        type: string
+                        description: The public key of the node
+                      nodeName:
+                        type: string
+                        description: The name of the node
+                    required:
+                      - publicKey
+                      - nodeName
             spec:
               type: object
               properties:
-                address:
-                  type: string
-                  description: local inner ip address
                 nodes:
                   type: array
                   description: list of nodes with their peer information in the cluster
@@ -46,6 +59,7 @@ spec:
                       - nodeName
                       - preSharedKey
                       - privateKey
+                      - address
                     properties:
                       nodeName:
                         type: string
@@ -54,6 +68,9 @@ spec:
                         type: string
                         description: node peer's pre-shared key
                         pattern: ^[A-Za-z0-9+/=]+$
+                      address:
+                        type: string
+                        description: local inner ip address
                       privateKey:
                         type: object
                         properties:
@@ -71,11 +88,10 @@ spec:
                                 type: string
                                 description: namespace of the secret containing the pre-shared key
                         oneOf:
-                          - properties:
+                          - properties: {}
                             required: ["value"]
-                          - properties:
+                          - properties: {}
                             required: ["secretRef"]
-
                 server:
                   type: object
                   properties:
@@ -97,7 +113,7 @@ spec:
                   type: integer
                   description: persistent keepalive interval in seconds
               required:
-                - address
+                - nodes
                 - server
                 - routes
   scope: Cluster

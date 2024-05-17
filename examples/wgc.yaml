@@ -3,17 +3,18 @@ kind: WireguardClusterClient
 metadata:
   name: demo
 spec:
-  address: 192.168.73.2
   server:
     endpoint: 1.1.1.1:1
     publicKey: YA8FqEgMZco/GeFc/4CXbQHHL/dKGLhKp2psD2t7EFE=
   nodes:
     - nodeName: kind-worker
       preSharedKey: GBVcf+gOnCJtQUg9te80IF7Hd2aF9ClGS7fpuyoF/XU=
+      address: 192.168.3.3
       privateKey:
         value: OM1lWaTuEf5KC8vmIEp4C7xfapvHG4yRuOuFgUbGLmU=
     - nodeName: kind-worker2
       preSharedKey: qMnq8G+CfXJzT49M2gTKk4Qkt+AFWvClvGo/5Z+lZk0=
+      address: 192.168.4.3
       privateKey:
         secretRef:
           # the key is **always** `privateKey`

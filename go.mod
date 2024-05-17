@@ -8,6 +8,7 @@ require (
 	github.com/google/nftables v0.2.0
 	github.com/spf13/cobra v1.8.0
 	github.com/vishvananda/netlink v1.1.0
+	golang.org/x/sync v0.6.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	k8s.io/api v0.30.0
 	k8s.io/apimachinery v0.30.0
@@ -56,7 +57,6 @@ require (
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

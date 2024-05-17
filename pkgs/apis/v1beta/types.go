@@ -67,10 +67,9 @@ type WireguardClusterClient struct {
 }
 
 type WireguardClusterClientSpec struct {
-	Address string                           `yaml:"address" json:"address"`
-	Nodes   []WireguardClusterClientNode     `yaml:"nodes" json:"nodes"`
-	Server  WireguardClusterClientSpecServer `yaml:"server" json:"server"`
-	Routes  []string                         `yaml:"routes" json:"routes"`
+	Nodes  []WireguardClusterClientNode     `yaml:"nodes" json:"nodes"`
+	Server WireguardClusterClientSpecServer `yaml:"server" json:"server"`
+	Routes []string                         `yaml:"routes" json:"routes"`
 	//+optional
 	PersistentKeepalive int `yaml:"persistentKeepalive,omitempty" json:"persistentKeepalive,omitempty"`
 }
@@ -82,18 +81,25 @@ type WireguardClusterClientNode struct {
 	PreSharedKey string `yaml:"preSharedKey,omitempty" json:"preSharedKey,omitempty"`
 
 	PrivateKey WireguardClusterClientNodePrivateKey `yaml:"privateKey" json:"privateKey"`
+
+	Address string `yaml:"address" json:"address"`
 }
 
 type WireguardClusterClientNodePrivateKey struct {
 	// oneOf
 	//+optional
-	Value string `yaml:"value,omitempty" json:"value,omitempty"`
+	Value *string `yaml:"value,omitempty" json:"value,omitempty"`
 	//+optional
-	SecretRef corev1.SecretReference `yaml:"secretRef,omitempty" json:"secretRef,omitempty"`
+	SecretRef *corev1.SecretReference `yaml:"secretRef,omitempty" json:"secretRef,omitempty"`
 }
 
 type WireguardClusterClientStatus struct {
-	PublicKey string `yaml:"publicKey,omitempty" json:"publicKey,omitempty"`
+	Peers []WireguardClusterClientStatusPeer `yaml:"peers" json:"peers"`
+}
+
+type WireguardClusterClientStatusPeer struct {
+	PublicKey string `yaml:"publicKey" json:"publicKey"`
+	NodeName  string `yaml:"nodeName" json:"nodeName"`
 }
 
 type WireguardClusterClientSpecServer struct {
