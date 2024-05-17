@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kraudcloud/wga/apis/wga.kraudcloud.com/v1beta"
+	"github.com/kraudcloud/wga/pkgs/apis/v1beta"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -98,6 +98,10 @@ type ClusterClientReconciler struct {
 	log    *slog.Logger
 }
 
+const (
+	SecretKeyName = "privateKey"
+)
+
 func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.WireguardClusterClient) (ctrl.Result, error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
@@ -108,62 +112,72 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 		return ctrl.Result{}, fmt.Errorf("error listing peers: %w", err)
 	}
 
+	// find out what node this client is on
+	nodeName := os.Getenv("NODE_NAME")
+	if nodeName == "" {
+		return ctrl.Result{}, fmt.Errorf("NODE_NAME environment variable not set")
+	}
+
 	for i, wg := range wgcs.Items {
 		r.log.Info("WireguardClusterClient", "name", wg.Name)
 
 		updateWgc := false
-		skName := wg.Spec.PrivateKeySecretRef.Name
-		if skName == "" {
-			skName = "wgc-" + wg.Name
-			wg.Spec.PrivateKeySecretRef.Name = skName
-			updateWgc = true
+		node := v1beta.WireguardClusterClientNode{}
+		for _, n := range wg.Spec.Nodes {
+			if n.NodeName == nodeName {
+				node = n
+				break
+			}
 		}
-		skNamespace := GetK8sNamespace()
-		skKey := wg.Spec.PrivateKeySecretRef.Key
-		if skKey == "" {
-			skKey = "privateKey"
-			wg.Spec.PrivateKeySecretRef.Key = skKey
-			updateWgc = true
+		if node.NodeName == "" {
+			r.log.Warn("Node not found", "name", wg.Name, "node", nodeName)
+			continue
 		}
 
 		var privk wgtypes.Key
 		sk := new(corev1.Secret)
 
-		err := r.client.Get(ctx, client.ObjectKey{
-			Namespace: skNamespace,
-			Name:      skName,
-		}, sk)
-		if err == nil {
-
-			privk, err = wgtypes.ParseKey(string(sk.Data[skKey]))
-			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("error parsing key: %w", err)
+		secretValue := node.PrivateKey.Value
+		if secretValue == "" {
+			skNamespace := node.PrivateKey.SecretRef.Namespace
+			if skNamespace == "" {
+				skNamespace = getK8sNamespace()
 			}
 
-		} else {
-
-			if wg.Spec.PrivateKeySecretRef.Value != "" {
-				privk, err = wgtypes.ParseKey(wg.Spec.PrivateKeySecretRef.Value)
-				if err != nil {
-					return ctrl.Result{}, fmt.Errorf("error parsing key: %w", err)
-				}
-				wg.Spec.PrivateKeySecretRef.Value = ""
+			skName := node.PrivateKey.SecretRef.Name
+			if skName == "" {
+				skName = formatSecretName(nodeName, wg.Name)
 				updateWgc = true
-			} else {
+			}
+
+			err := r.client.Get(ctx, client.ObjectKey{
+				Namespace: skNamespace,
+				Name:      skName,
+			}, sk)
+			if err != nil {
 				privk, err = wgtypes.GenerateKey()
 				if err != nil {
 					return ctrl.Result{}, fmt.Errorf("error generating key: %w", err)
 				}
+
+				sk.Name = skName
+				sk.Namespace = skNamespace
+				sk.Data = map[string][]byte{
+					SecretKeyName: privk[:],
+				}
+				err = r.client.Create(ctx, sk)
+				if err != nil {
+					return ctrl.Result{}, fmt.Errorf("error creating secret: %w", err)
+				}
 			}
 
-			sk.Name = skName
-			sk.Namespace = skNamespace
-			sk.Data = make(map[string][]byte)
-			sk.Data[skKey] = []byte(privk.String())
-			err = r.client.Create(ctx, sk)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("error creating secret: %w", err)
-			}
+			secretValue = string(sk.Data[SecretKeyName])
+			updateWgc = true
+		}
+
+		privk, err = wgtypes.ParseKey(secretValue)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("error parsing key: %w", err)
 		}
 
 		if wg.Status == nil {
@@ -182,12 +196,18 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 			}
 		}
 
-		wg.Spec.PrivateKeySecretRef.Value = privk.String()
-		wgcs.Items[i] = wg
+		node.PrivateKey.Value = privk.String()
+		for i := range wg.Spec.Nodes {
+			if wg.Spec.Nodes[i].NodeName == nodeName {
+				wg.Spec.Nodes[i] = node
+				break
+			}
+		}
 
+		wgcs.Items[i] = wg
 	}
 
-	err = wgcSync(wgcs.Items)
+	err = wgcSync(r.log, wgcs.Items)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error syncing wgc: %w", err)
 	}
@@ -195,7 +215,19 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 	return ctrl.Result{}, nil
 }
 
-func GetK8sNamespace() string {
+func getK8sNode() string {
+	if ns, ok := os.LookupEnv("HOSTNAME"); ok {
+		return ns
+	}
+
+	panic("unable to get node name")
+}
+
+func formatSecretName(nodeName string, wgcName string) string {
+	return fmt.Sprintf("wgc-%s-%s", wgcName, nodeName)
+}
+
+func getK8sNamespace() string {
 	if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
 		return ns
 	}
@@ -209,7 +241,7 @@ func GetK8sNamespace() string {
 	return "default"
 }
 
-func wgcSync(wgc []v1beta.WireguardClusterClient) error {
+func wgcSync(log *slog.Logger, wgc []v1beta.WireguardClusterClient) error {
 	// list existing interfaces
 	lnks, err := netlink.LinkList()
 	if err != nil {
@@ -229,9 +261,23 @@ func wgcSync(wgc []v1beta.WireguardClusterClient) error {
 		existing[lnk.Attrs().Name] = lnk
 	}
 
+	nodeName := getK8sNode()
+
 	// sync
 	for _, wgc := range wgc {
-		ifname := "wgc-" + wgc.Name
+		node := v1beta.WireguardClusterClientNode{}
+		for _, n := range wgc.Spec.Nodes {
+			if n.NodeName == nodeName {
+				node = n
+				break
+			}
+		}
+		if node.NodeName == "" {
+			log.Warn("Node not found", "name", wgc.Name, "node", nodeName)
+			continue
+		}
+
+		ifname := formatSecretName(nodeName, wgc.Name)
 
 		if _, ok := existing[ifname]; ok {
 			delete(existing, ifname)
@@ -248,7 +294,7 @@ func wgcSync(wgc []v1beta.WireguardClusterClient) error {
 			}
 		}
 
-		privk, err := wgtypes.ParseKey(wgc.Spec.PrivateKeySecretRef.Value)
+		privk, err := wgtypes.ParseKey(node.PrivateKey.Value)
 		if err != nil {
 			return fmt.Errorf("error parsing key: %w", err)
 		}
@@ -292,8 +338,8 @@ func wgcSync(wgc []v1beta.WireguardClusterClient) error {
 			Endpoint:          net.UDPAddrFromAddrPort(epa),
 		}
 
-		if wgc.Spec.Server.PreSharedKey != "" {
-			sk, err := wgtypes.ParseKey(wgc.Spec.Server.PreSharedKey)
+		if node.PreSharedKey != "" {
+			sk, err := wgtypes.ParseKey(node.PreSharedKey)
 			if err != nil {
 				return fmt.Errorf("error parsing key: %w", err)
 			}
@@ -334,7 +380,7 @@ func wgcSync(wgc []v1beta.WireguardClusterClient) error {
 			addr.IP = ip
 		}
 
-		slog.Info("syncing WireguardClusterClient", "name", wgc.Name, "address", addr)
+		log.Info("syncing WireguardClusterClient", "name", wgc.Name, "address", addr)
 
 		err = netlink.AddrReplace(link, &netlink.Addr{
 			IPNet: addr,
@@ -348,7 +394,7 @@ func wgcSync(wgc []v1beta.WireguardClusterClient) error {
 		for _, addr2 := range addrs {
 			if addr.String() != addr2.IPNet.String() {
 				if err := netlink.AddrDel(link, &addr2); err != nil {
-					slog.Error("Error deleting old address", "addr", addr, "error", err)
+					log.Error("Error deleting old address", "addr", addr, "error", err)
 					return err
 				}
 			}
@@ -380,7 +426,7 @@ func wgcSync(wgc []v1beta.WireguardClusterClient) error {
 
 			if delete {
 				if err := netlink.RouteDel(&hasRoute); err != nil {
-					slog.Error("Error deleting old route", "route", hasRoute, "error", err)
+					log.Error("Error deleting old route", "route", hasRoute, "error", err)
 					return err
 				}
 			}
@@ -392,7 +438,7 @@ func wgcSync(wgc []v1beta.WireguardClusterClient) error {
 	// delete leftovers
 	for n, lnk := range existing {
 		if err := netlink.LinkDel(lnk); err != nil {
-			slog.Error("Error deleting old wg interface", "if", n, "error", err)
+			log.Error("Error deleting old wg interface", "if", n, "error", err)
 			return err
 		}
 	}

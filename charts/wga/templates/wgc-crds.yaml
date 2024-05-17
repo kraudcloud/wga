@@ -37,19 +37,42 @@ spec:
                 address:
                   type: string
                   description: local inner ip address
-                privateKeySecretRef:
+                nodes:
                   type: object
-                  description: a reference to the secret containing the private key. will be created if it doesnt exist
+                  description: list of nodes with their peer information in the cluster
                   properties:
-                    name:
+                    nodeName:
                       type: string
-                      description: name of the secret. otherwise will be wgc-name-of-wgc
-                    key:
+                      description: name of the kubernetes node for this peer
+                    preSharedKey:
                       type: string
-                      default: privateKey
-                    value:
-                      type: string
-                      description: specifying a value here will be used to create the referenced secret if doesnt exist
+                      description: node peer's pre-shared key
+                      pattern: ^[A-Za-z0-9+/=]+$
+                    privateKey:
+                      type: object
+                      properties:
+                        value:
+                          type: string
+                          description: node peer's private key
+                          pattern: ^[A-Za-z0-9+/=]+$
+                        secretRef:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              description: name of the secret containing the pre-shared key
+                            namespace:
+                              type: string
+                              description: namespace of the secret containing the pre-shared key
+                      oneOf:
+                        - properties:
+                          required: ["value"]
+                        - properties:
+                          required: ["secretRef"]
+                  required:
+                    - nodeName
+                    - preSharedKey
+                    - privateKey
                 server:
                   type: object
                   properties:
@@ -59,10 +82,6 @@ spec:
                     publicKey:
                       type: string
                       description: remote public key
-                    preSharedKey:
-                      type: string
-                      pattern: ^[A-Za-z0-9+/=]+$
-                      description: Pre-shared key
                   required:
                     - endpoint
                     - publicKey
@@ -80,7 +99,7 @@ spec:
                 - routes
   scope: Cluster
   names:
-    plural:   wireguardclusterclients
+    plural: wireguardclusterclients
     singular: wireguardclusterclient
     kind: WireguardClusterClient
     shortNames:

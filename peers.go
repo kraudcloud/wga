@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kraudcloud/wga/apis/wga.kraudcloud.com/v1beta"
 	"github.com/kraudcloud/wga/operator"
+	"github.com/kraudcloud/wga/pkgs/apis/v1beta"
 	"github.com/spf13/cobra"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

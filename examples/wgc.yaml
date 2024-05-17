@@ -4,11 +4,19 @@ metadata:
   name: demo
 spec:
   address: 192.168.73.2
-  privateKeySecretRef:
-    value: MPKbGn9uV/bWF38A/arcrYlRe1v9tVEq02VuEL7iTFA=
   server:
     endpoint: 1.1.1.1:1
     publicKey: YA8FqEgMZco/GeFc/4CXbQHHL/dKGLhKp2psD2t7EFE=
-    preSharedKey: KMf6k5U67/xb1tR5a4Zjx/IK7IU97VAIGFfZANbBMGI=
+  nodes:
+    - name: kind-1
+      preSharedKey: GBVcf+gOnCJtQUg9te80IF7Hd2aF9ClGS7fpuyoF/XU=
+      privateKey:
+        value: OM1lWaTuEf5KC8vmIEp4C7xfapvHG4yRuOuFgUbGLmU=
+    - name: kind-2
+      preSharedKey: qMnq8G+CfXJzT49M2gTKk4Qkt+AFWvClvGo/5Z+lZk0=
+      privateKey:
+        # the key is **always** `privateKey`
+        secretRef:
+          name: kind-2-private-key
   routes:
     - 4.4.4.4/32
