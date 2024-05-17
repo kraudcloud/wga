@@ -190,6 +190,10 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 			return ctrl.Result{}, fmt.Errorf("error parsing key: %w", err)
 		}
 
+		if wg.Status == nil {
+			wg.Status = &v1beta.WireguardClusterClientStatus{}
+		}
+
 		if wg.Status.Peers == nil {
 			wg.Status.Peers = []v1beta.WireguardClusterClientStatusPeer{}
 		}

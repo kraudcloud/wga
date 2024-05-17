@@ -130,6 +130,10 @@ func peerCmd() *cobra.Command {
 
 			// can't marshal yaml because k8s doesn't have proper yaml field tags
 			enc.Encode(v1beta.WireguardClusterClient{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "WireguardClusterClient",
+					APIVersion: "wga.kraudcloud.com/v1beta",
+				},
 				ObjectMeta: v1.ObjectMeta{
 					Name: args[0],
 				},
