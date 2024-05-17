@@ -93,8 +93,8 @@ var peerPredicate = &predicate.TypedFuncs[client.Object]{
 
 func registerPeerReconciler(
 	mgr manager.Manager,
-	clientsNets []net.IPNet,
 	servicesNets []net.IPNet,
+	clientsNets []net.IPNet,
 	serverAddr string,
 	log *slog.Logger,
 ) {
