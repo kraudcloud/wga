@@ -216,11 +216,13 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 }
 
 func getK8sNode() string {
-	if ns, ok := os.LookupEnv("HOSTNAME"); ok {
+	if ns, ok := os.LookupEnv("NODE_NAME"); ok {
 		return ns
 	}
 
-	panic("unable to get node name")
+	slog.Error("unable to get node name from env", "key", "NODE_NAME")
+	os.Exit(1)
+	return ""
 }
 
 func formatSecretName(nodeName string, wgcName string) string {

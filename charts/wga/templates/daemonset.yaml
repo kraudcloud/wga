@@ -38,6 +38,10 @@ spec:
                 resourceFieldRef:
                   containerName: wgc
                   resource: limits.memory
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           securityContext:
             privileged: true
             capabilities:
