@@ -10,10 +10,6 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
-        - name: PublicKey
-          type: string
-          description: our publickeys
-          jsonPath: ".status.peers[*]['nodeName','publicKey']"
         - name: Routes
           type: string
           description: List of destination IP addresses or CIDRs
@@ -22,6 +18,11 @@ spec:
           type: string
           description: The server endpoint
           jsonPath: .spec.server.endpoint
+        - name: Peers
+          type: string
+          description: our publickeys
+          jsonPath: .status.peers
+          priority: 4
       schema:
         openAPIV3Schema:
           type: object
