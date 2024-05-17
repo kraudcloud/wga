@@ -101,8 +101,15 @@ type ClusterClientReconciler struct {
 
 const (
 	SecretKeyName      = "privateKey"
-	NodeLabelWGCStatus = "wga.kraudcloud.com/wgcStatus"
+	NodeLabelWGCStatus = "wga.kraudcloud.com/wgc-%s"
+
+	WGCReady  = "Ready"
+	WGCFailed = "Failed"
 )
+
+func FormatWGCNodeLabel(wgcName string) string {
+	return fmt.Sprintf(NodeLabelWGCStatus, wgcName)
+}
 
 func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.WireguardClusterClient) (res ctrl.Result, err error) {
 	defer func() {
@@ -114,7 +121,7 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 		r.client.Patch(ctx, &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   getK8sNode(),
-				Labels: map[string]string{NodeLabelWGCStatus: "Failed"},
+				Labels: map[string]string{FormatWGCNodeLabel(c.Name): WGCFailed},
 			},
 		}, client.Merge)
 	}()
@@ -282,13 +289,12 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 	}
 
 	// if sync passed, update node labels to reflect we can use wgc
-	err = r.client.Patch(ctx, &corev1.Node{
+	r.client.Patch(ctx, &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   getK8sNode(),
-			Labels: map[string]string{NodeLabelWGCStatus: "Ready"},
+			Labels: map[string]string{FormatWGCNodeLabel(c.Name): WGCFailed},
 		},
 	}, client.Merge)
-	// we don't really care about the result
 
 	return ctrl.Result{}, nil
 }
