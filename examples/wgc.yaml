@@ -1,14 +1,16 @@
-apiVersion: wga.kraudcloud.com/v1beta
-kind: WireguardClusterClient
-metadata:
-  name: demo
-spec:
-  address: 192.168.73.2
-  privateKeySecretRef:
-    value: MPKbGn9uV/bWF38A/arcrYlRe1v9tVEq02VuEL7iTFA=
-  server:
-    endpoint: 1.1.1.1:1
-    publicKey: YA8FqEgMZco/GeFc/4CXbQHHL/dKGLhKp2psD2t7EFE=
-    preSharedKey: KMf6k5U67/xb1tR5a4Zjx/IK7IU97VAIGFfZANbBMGI=
-  routes:
-    - 4.4.4.4/32
+"metadata": {"name": "kind7"}
+"spec":
+  "nodes":
+    - "nodeName": "kind-worker"
+      "preSharedKey": "CYDlOpEVLK1KDSn70I0pKpuKoRCDFlpl6si5ow2FIRw="
+      "privateKey": {"value": "VMBBPgJqW45Fi6ecv0LL0hLfx/addIlJS+V5bRzU5yA="}
+      "address": "192.168.1.251"
+    - "nodeName": "kind-worker2"
+      "preSharedKey": "IVVufwKMioTP1yeP5RNhw4za9BA3vwKQ5khH0OU7dLs="
+      "privateKey": {"value": "sWeuYXkGRWcmQa9v3c7bqhgQuWUx4DxHum/wu/rQRpg="}
+      "address": "192.168.1.110"
+  "server":
+    "endpoint": "192.168.1.10:51820"
+    "publicKey": "r65w+8wNvRyKBYdX83hfBbNi4+WJY5rksabKBsmldWE="
+  "routes": ["192.168.1.0/24"]
+  "persistentKeepalive": 60

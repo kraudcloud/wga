@@ -8,7 +8,13 @@
     knixpkgs,
   }: let
     goVersion = 22; # Change this to update the whole stack
-    overlays = [(final: prev: {go = prev."go_1_${toString goVersion}";})];
+    overlays = [
+      (final: prev: {go = prev."go_1_${toString goVersion}";})
+      (final: prev: {
+        kubernetes-code-generator = prev.kubernetes-code-generator.overrideAttrs (oldAttrs: {
+        version = "0.30.1";
+      });})
+    ];
     supportedSystems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     forEachSupportedSystem = f:
       nixpkgs.lib.genAttrs supportedSystems (system:
@@ -26,6 +32,7 @@
           kubernetes-helm
           minikube
           kind
+          kubernetes-code-generator
           knixpkgs.packages.${system}.helm-readme-generator
         ];
       };

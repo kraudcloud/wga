@@ -34,32 +34,6 @@ PersistentKeepalive = {{ seconds .PersistentKeepaliveInterval }}
 {{- end }}{{- end }}
 `
 
-const WgcFile = `apiVersion: wga.kraudcloud.com/v1beta
-kind: WireguardClusterClient
-metadata:
-  name: {{.Name}}
-spec:
-  address: {{ .Address }}
-  privateKeySecretRef:
-    value: {{ .PrivateKey }}
-{{- range .Peers }}
-  server:
-    endpoint: {{ .Endpoint }}
-    publicKey: {{ .PublicKey }}
-    {{- if validKey .PresharedKey }}
-    preSharedKey: {{ .PresharedKey }}
-    {{- end }}
-  routes:
-  {{- range .AllowedIPs}}
-    - {{.}}
-  {{- end }}
-  {{- if .PersistentKeepaliveInterval }}
-  persistentKeepalive: {{ seconds .PersistentKeepaliveInterval }}
-  {{- end }}
-{{- end }}
-
-`
-
 var funcs = template.FuncMap{
 	"joinIPs": func(ips []net.IP, sep string) string {
 		strs := make([]string, 0, len(ips))
@@ -83,10 +57,7 @@ var funcs = template.FuncMap{
 	},
 }
 
-var (
-	wgFileTemplate  = template.Must(template.New("wg-file").Funcs(funcs).Parse(WgFile))
-	wgcFileTemplate = template.Must(template.New("wgc-yaml").Funcs(funcs).Parse(WgcFile))
-)
+var wgFileTemplate = template.Must(template.New("wg-file").Funcs(funcs).Parse(WgFile))
 
 type ConfigFile struct {
 	Address *net.IPNet
@@ -96,9 +67,5 @@ type ConfigFile struct {
 }
 
 func Format(w io.Writer, wgConfig ConfigFile) error {
-	if wgConfig.Name != "" {
-		return wgcFileTemplate.Execute(w, wgConfig)
-	} else {
-		return wgFileTemplate.Execute(w, wgConfig)
-	}
+	return wgFileTemplate.Execute(w, wgConfig)
 }

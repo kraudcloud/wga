@@ -16,10 +16,11 @@ import (
 
 	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/go-logr/logr"
-	"github.com/kraudcloud/wga/apis/wga.kraudcloud.com/v1beta"
+	"github.com/kraudcloud/wga/pkgs/apis/v1beta"
 	"github.com/vishvananda/netlink"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -168,7 +169,7 @@ func (r *PeerReconciler) Reconcile(ctx context.Context, peer *v1beta.WireguardAc
 	}
 
 	peer.Status = &v1beta.WireguardAccessPeerStatus{
-		LastUpdated: time.Now().Format(time.RFC3339),
+		LastUpdated: metav1.Now(),
 		Address:     sip.String(),
 		Peers: []v1beta.WireguardAccessPeerStatusPeer{
 			{

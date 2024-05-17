@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -12,9 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kraudcloud/wga/apis/wga.kraudcloud.com/v1beta"
 	"github.com/kraudcloud/wga/operator"
+	"github.com/kraudcloud/wga/pkgs/apis/v1beta"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -37,7 +39,6 @@ func peerCmd() *cobra.Command {
 		Aliases: []string{"p", "peers"},
 	}
 
-	var formatAsWGC string
 	add := &cobra.Command{
 		Use:   "add [name]",
 		Short: "add a WireguardAccessPeer",
@@ -45,32 +46,117 @@ func peerCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			err := newPeer(ctx, args[0], rules, dns, formatAsWGC, clientConfig())
+
+			pk, err := wgtypes.GenerateKey()
 			if err != nil {
-				slog.Error(err.Error())
-				os.Exit(1)
+				exit("unable to generate key", "err", err)
 			}
+
+			psk, err := wgtypes.GenerateKey()
+			if err != nil {
+				exit("unable to generate psk", "err", err)
+			}
+
+			peer, err := NewWGAPeer(ctx, args[0], rules, pk, psk, clientConfig())
+			if err != nil {
+				exit("unable to create peer", "err", err)
+			}
+
+			FormatPeerIni(*peer, dns, pk, psk)
 		},
 		Aliases: []string{"new"},
 	}
 	add.Flags().StringSliceVarP(&rules, "rules", "r", rules, "rules to apply to this peer")
-	add.Flags().StringVar(&formatAsWGC, "wgc", "", "format as a WireguardClusterClient.yaml")
-
 	cmd.AddCommand(add)
+
+	wgcNodes := []string{}
+	wgc := &cobra.Command{
+		Use:   "wgc",
+		Short: "generate a configuration for a WireguardAccessClient",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			if len(wgcNodes) == 0 {
+				exit("no wgc nodes specified")
+			}
+
+			client := clientConfig()
+
+			nodes := make([]v1beta.WireguardClusterClientNode, len(wgcNodes))
+			peers := make([]v1beta.WireguardAccessPeer, len(wgcNodes))
+			group := errgroup.Group{}
+			for i := range wgcNodes {
+				i := i
+				group.Go(func() error {
+					pk, err := wgtypes.GenerateKey()
+					if err != nil {
+						exit("unable to generate key", "err", err)
+					}
+
+					psk, err := wgtypes.GenerateKey()
+					if err != nil {
+						exit("unable to generate psk", "err", err)
+					}
+
+					peer, err := NewWGAPeer(ctx, fmt.Sprintf("wgc-%s-%s", args[0], wgcNodes[i]), rules, pk, psk, client)
+					if err != nil {
+						return err
+					}
+
+					peers[i] = *peer
+					nodes[i] = v1beta.WireguardClusterClientNode{
+						NodeName:     wgcNodes[i],
+						PreSharedKey: psk.String(),
+						PrivateKey: v1beta.WireguardClusterClientNodePrivateKey{
+							Value: ptr(pk.String()),
+						},
+						Address: peer.Status.Address,
+					}
+					return nil
+				})
+			}
+
+			err := group.Wait()
+			if err != nil {
+				exit("unable to create peers", "err", err)
+			}
+
+			p := peers[0].Status.Peers[0]
+
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+
+			// can't marshal yaml because k8s doesn't have proper yaml field tags
+			enc.Encode(v1beta.WireguardClusterClient{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "WireguardClusterClient",
+					APIVersion: "wga.kraudcloud.com/v1beta",
+				},
+				ObjectMeta: v1.ObjectMeta{
+					Name: args[0],
+				},
+				Spec: v1beta.WireguardClusterClientSpec{
+					Nodes:  nodes,
+					Routes: p.AllowedIPs,
+					Server: v1beta.WireguardClusterClientSpecServer{
+						Endpoint:  p.Endpoint,
+						PublicKey: p.PublicKey,
+					},
+					PersistentKeepalive: 60,
+				},
+			})
+		},
+	}
+
+	wgc.Flags().StringSliceVarP(&wgcNodes, "nodes", "n", wgcNodes, "list of WireguardClusterClient node names to connect to")
+	cmd.AddCommand(wgc)
+
 	return cmd
 }
 
-func newPeer(ctx context.Context, name string, rules []string, dns []net.IP, formatAsWGC string, config *rest.Config) error {
-	keyset, err := wgtypes.GenerateKey()
-	if err != nil {
-		return fmt.Errorf("wgtypes.NewKey: %w", err)
-	}
-
-	pskset, err := wgtypes.GenerateKey()
-	if err != nil {
-		return fmt.Errorf("wgtypes.NewKey: %w", err)
-	}
-
+func NewWGAPeer(ctx context.Context, name string, rules []string, keyset, pskset wgtypes.Key, config *rest.Config) (*v1beta.WireguardAccessPeer, error) {
 	peerValue := v1beta.WireguardAccessPeer{
 		ObjectMeta: v1.ObjectMeta{
 			Name: name,
@@ -88,19 +174,19 @@ func newPeer(ctx context.Context, name string, rules []string, dns []net.IP, for
 
 	c, err := client.NewWithWatch(config, client.Options{})
 	if err != nil {
-		return fmt.Errorf("cannot create client: %w", err)
+		return nil, fmt.Errorf("cannot create client: %w", err)
 	}
 
 	err = c.Create(ctx, &peerValue)
 	if err != nil {
-		return fmt.Errorf("cannot create peer: %w", err)
+		return nil, fmt.Errorf("cannot create peer: %w", err)
 	}
 
 	w, err := c.Watch(ctx, &v1beta.WireguardAccessPeerList{}, client.MatchingFieldsSelector{
 		Selector: fields.AndSelectors(fields.OneTermEqualSelector("metadata.name", name)),
 	})
 	if err != nil {
-		return fmt.Errorf("cannot watch peer: %w", err)
+		return nil, fmt.Errorf("cannot watch peer: %w", err)
 	}
 
 	var populatedPeer *v1beta.WireguardAccessPeer
@@ -121,13 +207,13 @@ func newPeer(ctx context.Context, name string, rules []string, dns []net.IP, for
 	}
 
 	if populatedPeer == nil {
-		return fmt.Errorf("peer has no status, there was probably an error with the wga server")
+		return nil, fmt.Errorf("peer has no status, there was probably an error with the wga server")
 	}
 
-	return fmtPeer(*populatedPeer, dns, keyset, pskset, formatAsWGC)
+	return populatedPeer, nil
 }
 
-func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key, formatAsWGC string) error {
+func FormatPeerIni(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key) error {
 	peers := []wgtypes.Peer{}
 	for _, peer := range peer.Status.Peers {
 		publicKey, err := wgtypes.ParseKey(peer.PublicKey)
@@ -170,7 +256,7 @@ func fmtPeer(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key,
 
 	oubuf := &strings.Builder{}
 	err := Format(oubuf, ConfigFile{
-		Name: formatAsWGC,
+		Name: peer.Name,
 		Address: &net.IPNet{
 			IP:   ip,
 			Mask: operator.FullMask(ip),
@@ -195,4 +281,13 @@ func newPassword() string {
 	buf := make([]byte, 2)
 	rand.Read(buf)
 	return fmt.Sprintf("%04d", binary.BigEndian.Uint16(buf))
+}
+
+func exit(message string, args ...any) {
+	slog.Error(message, args...)
+	os.Exit(1)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

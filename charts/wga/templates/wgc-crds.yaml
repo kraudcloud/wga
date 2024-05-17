@@ -10,10 +10,6 @@ spec:
       served: true
       storage: true
       additionalPrinterColumns:
-        - name: PublicKey
-          type: string
-          description: our publickey
-          jsonPath: .status.publicKey
         - name: Routes
           type: string
           description: List of destination IP addresses or CIDRs
@@ -22,34 +18,82 @@ spec:
           type: string
           description: The server endpoint
           jsonPath: .spec.server.endpoint
+        - name: Nodes
+          type: string
+          description: our publickeys
+          jsonPath: .status.nodes
+          priority: 4
       schema:
         openAPIV3Schema:
           type: object
+          required:
+            - spec
           properties:
             status:
               type: object
+              required:
+                - nodes
               properties:
-                publicKey:
-                  type: string
+                nodes:
+                  type: array
+                  description: list of nodes with their peer information in the cluster
+                  items:
+                    type: object
+                    properties:
+                      publicKey:
+                        type: string
+                        description: The public key of the node
+                      nodeName:
+                        type: string
+                        description: The name of the node
+                    required:
+                      - publicKey
+                      - nodeName
             spec:
               type: object
               properties:
-                address:
-                  type: string
-                  description: local inner ip address
-                privateKeySecretRef:
-                  type: object
-                  description: a reference to the secret containing the private key. will be created if it doesnt exist
-                  properties:
-                    name:
-                      type: string
-                      description: name of the secret. otherwise will be wgc-name-of-wgc
-                    key:
-                      type: string
-                      default: privateKey
-                    value:
-                      type: string
-                      description: specifying a value here will be used to create the referenced secret if doesnt exist
+                nodes:
+                  type: array
+                  description: list of nodes with their peer information in the cluster
+                  items:
+                    type: object
+                    required:
+                      - nodeName
+                      - preSharedKey
+                      - privateKey
+                      - address
+                    properties:
+                      nodeName:
+                        type: string
+                        description: name of the kubernetes node for this peer
+                      preSharedKey:
+                        type: string
+                        description: node peer's pre-shared key
+                        pattern: ^[A-Za-z0-9+/=]+$
+                      address:
+                        type: string
+                        description: local inner ip address
+                      privateKey:
+                        type: object
+                        properties:
+                          value:
+                            type: string
+                            description: node peer's private key
+                            pattern: ^[A-Za-z0-9+/=]+$
+                          secretRef:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                description: name of the secret containing the pre-shared key
+                              namespace:
+                                type: string
+                                description: namespace of the secret containing the pre-shared key
+                        oneOf:
+                          - properties: {}
+                            required: ["value"]
+                          - properties: {}
+                            required: ["secretRef"]
                 server:
                   type: object
                   properties:
@@ -59,10 +103,6 @@ spec:
                     publicKey:
                       type: string
                       description: remote public key
-                    preSharedKey:
-                      type: string
-                      pattern: ^[A-Za-z0-9+/=]+$
-                      description: Pre-shared key
                   required:
                     - endpoint
                     - publicKey
@@ -75,12 +115,12 @@ spec:
                   type: integer
                   description: persistent keepalive interval in seconds
               required:
-                - address
+                - nodes
                 - server
                 - routes
   scope: Cluster
   names:
-    plural:   wireguardclusterclients
+    plural: wireguardclusterclients
     singular: wireguardclusterclient
     kind: WireguardClusterClient
     shortNames:
