@@ -38,41 +38,44 @@ spec:
                   type: string
                   description: local inner ip address
                 nodes:
-                  type: object
+                  type: array
                   description: list of nodes with their peer information in the cluster
-                  properties:
-                    nodeName:
-                      type: string
-                      description: name of the kubernetes node for this peer
-                    preSharedKey:
-                      type: string
-                      description: node peer's pre-shared key
-                      pattern: ^[A-Za-z0-9+/=]+$
-                    privateKey:
-                      type: object
-                      properties:
-                        value:
-                          type: string
-                          description: node peer's private key
-                          pattern: ^[A-Za-z0-9+/=]+$
-                        secretRef:
-                          type: object
-                          properties:
-                            name:
-                              type: string
-                              description: name of the secret containing the pre-shared key
-                            namespace:
-                              type: string
-                              description: namespace of the secret containing the pre-shared key
-                      oneOf:
-                        - properties:
-                          required: ["value"]
-                        - properties:
-                          required: ["secretRef"]
-                  required:
-                    - nodeName
-                    - preSharedKey
-                    - privateKey
+                  items:
+                    type: object
+                    required:
+                      - nodeName
+                      - preSharedKey
+                      - privateKey
+                    properties:
+                      nodeName:
+                        type: string
+                        description: name of the kubernetes node for this peer
+                      preSharedKey:
+                        type: string
+                        description: node peer's pre-shared key
+                        pattern: ^[A-Za-z0-9+/=]+$
+                      privateKey:
+                        type: object
+                        properties:
+                          value:
+                            type: string
+                            description: node peer's private key
+                            pattern: ^[A-Za-z0-9+/=]+$
+                          secretRef:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                description: name of the secret containing the pre-shared key
+                              namespace:
+                                type: string
+                                description: namespace of the secret containing the pre-shared key
+                        oneOf:
+                          - properties:
+                            required: ["value"]
+                          - properties:
+                            required: ["secretRef"]
+
                 server:
                   type: object
                   properties:

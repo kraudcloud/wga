@@ -8,15 +8,15 @@ spec:
     endpoint: 1.1.1.1:1
     publicKey: YA8FqEgMZco/GeFc/4CXbQHHL/dKGLhKp2psD2t7EFE=
   nodes:
-    - name: kind-1
+    - nodeName: kind-worker
       preSharedKey: GBVcf+gOnCJtQUg9te80IF7Hd2aF9ClGS7fpuyoF/XU=
       privateKey:
         value: OM1lWaTuEf5KC8vmIEp4C7xfapvHG4yRuOuFgUbGLmU=
-    - name: kind-2
+    - nodeName: kind-worker2
       preSharedKey: qMnq8G+CfXJzT49M2gTKk4Qkt+AFWvClvGo/5Z+lZk0=
       privateKey:
-        # the key is **always** `privateKey`
         secretRef:
-          name: kind-2-private-key
+          # the key is **always** `privateKey`
+          name: kind-worker2-wgc
   routes:
     - 4.4.4.4/32
