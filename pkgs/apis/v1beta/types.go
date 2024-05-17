@@ -94,10 +94,10 @@ type WireguardClusterClientNodePrivateKey struct {
 }
 
 type WireguardClusterClientStatus struct {
-	Peers []WireguardClusterClientStatusPeer `yaml:"peers" json:"peers"`
+	Nodes []WireguardClusterClientStatusNode `yaml:"nodes" json:"nodes"`
 }
 
-type WireguardClusterClientStatusPeer struct {
+type WireguardClusterClientStatusNode struct {
 	PublicKey string `yaml:"publicKey" json:"publicKey"`
 	NodeName  string `yaml:"nodeName" json:"nodeName"`
 }

@@ -194,16 +194,16 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 			wg.Status = &v1beta.WireguardClusterClientStatus{}
 		}
 
-		if wg.Status.Peers == nil {
-			wg.Status.Peers = []v1beta.WireguardClusterClientStatusPeer{}
+		if wg.Status.Nodes == nil {
+			wg.Status.Nodes = []v1beta.WireguardClusterClientStatusNode{}
 		}
 
 		peerFound := false
-		for i, p := range wg.Status.Peers {
+		for i, p := range wg.Status.Nodes {
 			if p.NodeName == nodeName {
 				peerFound = true
 				if p.PublicKey != privk.PublicKey().String() {
-					wg.Status.Peers[i].PublicKey = privk.PublicKey().String()
+					wg.Status.Nodes[i].PublicKey = privk.PublicKey().String()
 					updateWgc = true
 				}
 				break
@@ -211,7 +211,7 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 		}
 
 		if !peerFound {
-			wg.Status.Peers = append(wg.Status.Peers, v1beta.WireguardClusterClientStatusPeer{
+			wg.Status.Nodes = append(wg.Status.Nodes, v1beta.WireguardClusterClientStatusNode{
 				NodeName:  nodeName,
 				PublicKey: privk.PublicKey().String(),
 			})

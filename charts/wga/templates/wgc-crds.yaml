@@ -18,10 +18,10 @@ spec:
           type: string
           description: The server endpoint
           jsonPath: .spec.server.endpoint
-        - name: Peers
+        - name: Nodes
           type: string
           description: our publickeys
-          jsonPath: .status.peers
+          jsonPath: .status.nodes
           priority: 4
       schema:
         openAPIV3Schema:
@@ -32,10 +32,11 @@ spec:
             status:
               type: object
               required:
-                - peers
+                - nodes
               properties:
-                peers:
+                nodes:
                   type: array
+                  description: list of nodes with their peer information in the cluster
                   items:
                     type: object
                     properties:
