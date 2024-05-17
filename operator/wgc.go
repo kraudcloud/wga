@@ -100,15 +100,30 @@ type ClusterClientReconciler struct {
 }
 
 const (
-	SecretKeyName = "privateKey"
+	SecretKeyName      = "privateKey"
+	NodeLabelWGCStatus = "wga.kraudcloud.com/wgcStatus"
 )
 
-func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.WireguardClusterClient) (ctrl.Result, error) {
+func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.WireguardClusterClient) (res ctrl.Result, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		// set node label to failed
+		r.client.Patch(ctx, &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   getK8sNode(),
+				Labels: map[string]string{NodeLabelWGCStatus: "Failed"},
+			},
+		}, client.Merge)
+	}()
+
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	wgcs := new(v1beta.WireguardClusterClientList)
-	err := r.client.List(ctx, wgcs)
+	err = r.client.List(ctx, wgcs)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error listing peers: %w", err)
 	}
@@ -265,6 +280,15 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error syncing wgc: %w", err)
 	}
+
+	// if sync passed, update node labels to reflect we can use wgc
+	err = r.client.Patch(ctx, &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   getK8sNode(),
+			Labels: map[string]string{NodeLabelWGCStatus: "Ready"},
+		},
+	}, client.Merge)
+	// we don't really care about the result
 
 	return ctrl.Result{}, nil
 }
