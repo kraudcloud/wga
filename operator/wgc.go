@@ -292,7 +292,7 @@ func (r *ClusterClientReconciler) Reconcile(ctx context.Context, c *v1beta.Wireg
 	r.client.Patch(ctx, &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   getK8sNode(),
-			Labels: map[string]string{FormatWGCNodeLabel(c.Name): WGCFailed},
+			Labels: map[string]string{FormatWGCNodeLabel(c.Name): WGCReady},
 		},
 	}, client.Merge)
 
