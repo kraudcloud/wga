@@ -1,16 +1,32 @@
-"metadata": {"name": "kind7"}
-"spec":
-  "nodes":
-    - "nodeName": "kind-worker"
-      "preSharedKey": "CYDlOpEVLK1KDSn70I0pKpuKoRCDFlpl6si5ow2FIRw="
-      "privateKey": {"value": "VMBBPgJqW45Fi6ecv0LL0hLfx/addIlJS+V5bRzU5yA="}
-      "address": "192.168.1.251"
-    - "nodeName": "kind-worker2"
-      "preSharedKey": "IVVufwKMioTP1yeP5RNhw4za9BA3vwKQ5khH0OU7dLs="
-      "privateKey": {"value": "sWeuYXkGRWcmQa9v3c7bqhgQuWUx4DxHum/wu/rQRpg="}
-      "address": "192.168.1.110"
-  "server":
-    "endpoint": "192.168.1.10:51820"
-    "publicKey": "r65w+8wNvRyKBYdX83hfBbNi4+WJY5rksabKBsmldWE="
-  "routes": ["192.168.1.0/24"]
-  "persistentKeepalive": 60
+{
+  "kind": "WireguardClusterClient",
+  "apiVersion": "wga.kraudcloud.com/v1beta",
+  "metadata": {"name": "kind"},
+  "spec":
+    {
+      "nodes":
+        [
+          {
+            "nodeName": "kind-worker",
+            "preSharedKey": "6DJr2McDT+NVQht95CTq8Q2fdEUalUHiWqCQOFtFXnw=",
+            "privateKey":
+              {"value": "fkdJdpBHZKg/WNgKvToOJUb5whSyejUijRn2uXwGqOc="},
+            "address": "192.168.1.254",
+          },
+          {
+            "nodeName": "kind-worker2",
+            "preSharedKey": "hCz69/42o39TP5aGkiF63eb18H7Go0RTGXYsfBROUt4=",
+            "privateKey":
+              {"value": "X4L85+U0O9NlRarlm520rHA4OQAemwmQZu91uHLTWJ4="},
+            "address": "192.168.1.177",
+          },
+        ],
+      "server":
+        {
+          "endpoint": "192.168.1.10:51820",
+          "publicKey": "rVOL7JErbFDcdI90pz0v+8Tl8slGqOC6QdS7XUFcDAw=",
+        },
+      "routes": ["192.168.1.0/24"],
+      "persistentKeepalive": 60,
+    },
+}
