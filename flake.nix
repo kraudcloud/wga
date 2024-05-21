@@ -33,6 +33,7 @@
           minikube
           kind
           kubernetes-code-generator
+          helm-ls
           knixpkgs.packages.${system}.helm-readme-generator
         ];
       };
