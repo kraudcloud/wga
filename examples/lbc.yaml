@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+      resources:
+        limits:
+          cpu: "0.2"
+          memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service-static
+  annotations:
+    wga.kraudcloud.com/loadBalancerIPs: 192.168.1.12,192.168.1.16
+spec:
+  type: LoadBalancer
+  loadBalancerClass: "wga.kraudcloud.com/intranet"
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service-dynamic
+spec:
+  type: LoadBalancer
+  loadBalancerClass: "wga.kraudcloud.com/intranet"
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

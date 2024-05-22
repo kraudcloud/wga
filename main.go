@@ -38,7 +38,7 @@ func main() {
 		Short: "run named WireguardAccessEndpoint",
 		Run: func(cmd *cobra.Command, args []string) {
 			clientCIDRstr := os.Getenv("WGA_CLIENT_CIDR")
-			_, clientCIDR, err := net.ParseCIDR(clientCIDRstr)
+			_, peersNet, err := net.ParseCIDR(clientCIDRstr)
 			if err != nil {
 				slog.Error("cannot parse client cidr", "WGA_CLIENT_CIDR", clientCIDRstr, "err", err.Error())
 				os.Exit(1)
@@ -57,16 +57,16 @@ func main() {
 			}
 
 			allowedIPs := strings.Split(allowedIPEnv, ",")
-			allowedIPNets := []net.IPNet{}
+			serviceNets := []net.IPNet{}
 			for _, ip := range allowedIPs {
 				_, ipnet, err := net.ParseCIDR(ip)
 				if err != nil {
 					slog.Error("cannot parse allowed ip", "allowedIP", ip, "err", err.Error())
 				}
-				allowedIPNets = append(allowedIPNets, *ipnet)
+				serviceNets = append(serviceNets, *ipnet)
 			}
 
-			operator.RunWGA(cmd.Context(), clientConfig(), allowedIPNets, []net.IPNet{*clientCIDR}, serverAddr)
+			operator.RunWGA(cmd.Context(), clientConfig(), serviceNets, []net.IPNet{*peersNet}, serverAddr)
 		},
 	}
 	rootCmd.AddCommand(serverCmd)
