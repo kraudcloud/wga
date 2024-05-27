@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/apparentlymart/go-cidr/cidr"
 	corev1 "k8s.io/api/core/v1"
@@ -121,7 +122,7 @@ func (r *LoadBalancerClassReconciler) Reconcile(ctx context.Context, svc *corev1
 	var generated *net.IP
 	serviceIPs := []net.IP{}
 	if len(svc.Annotations[LoadBalancerIPs]) == 0 {
-		ip, err := cidr.HostBig(&r.serviceNets[0], generateIndex(&r.serviceNets[0]))
+		ip, err := cidr.HostBig(&r.serviceNets[0], generateIndex(time.Now(), maskBits(r.serviceNets[0])))
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to generate ip: %w", err)
 		}

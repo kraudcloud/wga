@@ -163,7 +163,7 @@ func (r *PeerReconciler) Reconcile(ctx context.Context, peer *v1beta.WireguardAc
 	r.log.Info("setting peer status", "peer", peer.Name)
 
 	cnet := randPick(r.clientsNets)
-	sip, err := cidr.HostBig(&cnet, generateIndex(&cnet))
+	sip, err := cidr.HostBig(&cnet, generateIndex(time.Now(), maskBits(cnet)))
 	if err != nil {
 		r.log.Error(err.Error(), "peer", peer.Name)
 		return ctrl.Result{}, err
@@ -449,31 +449,39 @@ func wgaSync(log *slog.Logger, config *Config) error {
 	return nil
 }
 
+func maskBits(cidr net.IPNet) int {
+	ones, bits := cidr.Mask.Size()
+	return bits - ones
+}
+
+func bigMax(bits int) *big.Int {
+	return new(big.Int).Exp(big.NewInt(2), big.NewInt(int64(bits)), nil)
+}
+
 // generate a new index for the given cidr range
 // this is used to generate a unique ip.
 //
 // Fill the top bits with time, and the bottom with
 // at least 16 random bits.
-func generateIndex(cidr *net.IPNet) *big.Int {
-	ones, bits := cidr.Mask.Size()
-	mask := bits - ones
+func generateIndex(t time.Time, mask int) *big.Int {
+	if mask >= 128 {
+		panic("mask too large")
+	}
 
 	z := big.NewInt(0)
-	z.Lsh(z.SetInt64(time.Now().Unix()), uint(mask))
+	z.SetInt64(t.UnixNano())
 
-	// rand size is 16 bits up to bits-64
+	// Calculate the required size for random bits
+	// Ensures at least 16 bits and utilizes remaining bits in mask after time bits
 	randSize := max(16, mask-64)
+	r := big.NewInt(rand.Int64N(1<<uint(randSize) - 1))
 
-	z.Add(z, big.NewInt(rand.Int64N(1<<uint(randSize))))
+	// Move the random bits to the bottom of the int
+	z.Lsh(z, uint(randSize))
+	z.Or(z, r)
 
-	// maxZ is the maximum value of z, aka 2**mask
-	maxZ := big.NewInt(1)
-	maxZ.Lsh(maxZ, uint(mask))
-	maxZ.Sub(maxZ, big.NewInt(1))
-
-	// truncate the top bits to the mask
-	z.And(z, maxZ)
-	slog.Info("generated index", "cidr", cidr.String(), "index", z)
+	z.Add(z, r)
+	z.Rem(z, bigMax(mask))
 	return z
 }
 
