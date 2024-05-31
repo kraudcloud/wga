@@ -1,0 +1,59 @@
+{{ if .Values.dns.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wga.fullname" . }}-dnsmasq
+  labels:
+    {{- include "wga.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.dns.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "wga.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "wga.selectorLabels" . | nindent 8 }}
+    spec:
+      affinity: 
+        {{- toYaml .Values.affinity | nindent 8 }}
+      tolerations: 
+        {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "wga.serviceAccountName" . }}
+      volumes:
+        - name: dnsmasq-config
+          configMap:
+            name: {{ include "wga.fullname" . }}-dnsmasq
+            items:
+              - key: dnsmasq.conf
+                path: dnsmasq.conf
+      containers:
+        - name: {{ .Chart.Name }}-dnsmasq
+          image: "{{ .Values.dns.image.repository }}:{{ .Values.dns.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.dns.image.pullPolicy }}
+          ports:
+            - name: dns
+              containerPort: {{ .Values.dns.port }}
+              protocol: UDP
+          resources:
+            {{- toYaml .Values.dns.resources | nindent 12 }}
+          volumeMounts:
+            - name: dnsmasq-config
+              mountPath: /etc/dnsmasq.conf
+              subPath: dnsmasq.conf
+              readOnly: true
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+{{ end }}

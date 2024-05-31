@@ -1,0 +1,28 @@
+{{if .Values.dns.enabled}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wga.fullname" . }}-dnsmasq
+  labels:
+    {{- include "wga.labels" . | nindent 4 }}
+  annotations:
+  {{- if .Values.dns.serviceAnnotations }}
+  {{- toYaml .Values.dns.serviceAnnotations | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    {{- include "wga.selectorLabels" . | nindent 4 }}
+  ports:
+    - protocol: UDP
+      port: {{ .Values.dns.port }}
+      targetPort: {{ .Values.dns.port }}
+  type: {{ .Values.dns.serviceType }}
+  {{- if eq .Values.dns.serviceType "LoadBalancer" }}
+  loadBalancerIP: {{ .Values.dns.address | quote}}
+  loadBalancerClass: {{ .Values.dns.loadBalancerClass | quote }}
+  {{- else if eq .Values.dns.serviceType "ClusterIP" }}
+  clusterIP: {{ .Values.dns.address | quote }}
+  {{ else }}
+  {{ fail "dns.serviceType must be either LoadBalancer or ClusterIP." }}
+  {{- end}}
+{{ end }}

@@ -10,4 +10,7 @@ helm install wga ./charts/wga \
     --set endpoint.address=192.168.1.10 \
     --set endpoint.clientCIDR=192.168.1.0/24 \
     --set endpoint.allowedIPs=192.168.1.0/24 \
-    --set clusterClient.enable=true
+    --set clusterClient.enable=true \
+    --set dns.enabled=true \
+    --set dns.address=192.168.1.53 \
+    "$@"

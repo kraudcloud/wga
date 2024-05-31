@@ -18,6 +18,10 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 
 | Name                                 | Description                                                                                                                      | Value          |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `podAnnotations`                     | Additional annotations for wga pods                                                                                              | `{}`           |
+| `nodeSelector`                       | Node labels for pod assignment                                                                                                   | `{}`           |
+| `tolerations`                        | List of node taints to tolerate (requires Kubernetes >=1.6)                                                                      | `[]`           |
+| `affinity`                           | A dictionary containing affinity settings for wga pods                                                                           | `{}`           |
 | `endpoint.clientCIDR`                | CIDR range for client IPs. This is the range from which the wga pod will allocate IPs.                                           | `""`           |
 | `endpoint.address`                   | Public address for the wireguard interface. Prefer using endpoint.service.loadBalancerIP                                         | `""`           |
 | `endpoint.allowedIPs`                | List of IPs that are allowed to connect to from the wireguard interface                                                          | `""`           |
@@ -60,3 +64,22 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 | ------------------------- | ------------------------------------------------------------------------------ | ------- |
 | `clusterClient.enable`    | enable a daemonset to access other clusters wga via WireguardClusterClient CRD | `false` |
 | `clusterClient.resources` | CPU/Memory resource requests/limits for the clusterClient component            | `{}`    |
+
+### dns
+
+| Name                     | Description                                                                        | Value                |
+| ------------------------ | ---------------------------------------------------------------------------------- | -------------------- |
+| `dns.enabled`            | whether DNS is enabled for wga.                                                    | `false`              |
+| `dns.image.tag`          | Image tag for the dns component                                                    | `2.84`               |
+| `dns.image.repository`   | Image repository for the dns component                                             | `tschaffter/dnsmasq` |
+| `dns.image.pullPolicy`   | Image pull policy for the dns component                                            | `IfNotPresent`       |
+| `dns.port`               | DNS port for the dnsmasq service                                                   | `53`                 |
+| `dns.serviceType`        | Kubernetes Service type.                                                           | `LoadBalancer`       |
+| `dns.serviceAnnotations` | Additional annotations for the Service                                             | `{}`                 |
+| `dns.loadBalancerClass`  | Kubernetes LoadBalancerClass to use.                                               | `""`                 |
+| `dns.replicaCount`       | Number of replicas for the dns component                                           | `1`                  |
+| `dns.address`            | Public IP address for the dnsmasq service. Prefer using dns.service.loadBalancerIP | `""`                 |
+| `dns.resources`          | CPU/Memory resource requests/limits for the dns component                          | `{}`                 |
+| `dns.noDefaultConfig`    | whether to override the default dnsmasq configuration instead of appending to it   | `false`              |
+| `dns.servers`            | List of DNS servers to use                                                         | `["8.8.8.8"]`        |
+| `dns.customConfig`       | Custom configuration for the dnsmasq service                                       | `""`                 |

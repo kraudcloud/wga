@@ -11,6 +11,18 @@ global:
 ## @section Common parameters
 ##
 
+## @param podAnnotations Additional annotations for wga pods
+podAnnotations: {}
+
+## @param nodeSelector Node labels for pod assignment
+nodeSelector: {}
+
+## @param tolerations List of node taints to tolerate (requires Kubernetes >=1.6)
+tolerations: []
+
+## @param affinity A dictionary containing affinity settings for wga pods
+affinity: {}
+
 ## @param endpoint.clientCIDR CIDR range for client IPs. This is the range from which the wga pod will allocate IPs.
 ## @param endpoint.address Public address for the wireguard interface. Prefer using endpoint.service.loadBalancerIP
 ## @param endpoint.allowedIPs List of IPs that are allowed to connect to from the wireguard interface
@@ -130,3 +142,49 @@ clusterClient:
   # limits:
   #   cpu: 50m
   #   memory: 128Mi
+
+## @section dns
+##
+
+dns:
+  ## @param dns.enabled whether DNS is enabled for wga.
+  enabled: false
+  ## @param dns.image.tag Image tag for the dns component
+  ## @param dns.image.repository Image repository for the dns component
+  ## @param dns.image.pullPolicy Image pull policy for the dns component
+  image:
+    repository: tschaffter/dnsmasq
+    tag: "2.84"
+    pullPolicy: IfNotPresent
+
+  ## @param dns.port DNS port for the dnsmasq service
+  port: 53
+
+  ## @param dns.serviceType Kubernetes Service type.
+  serviceType: "LoadBalancer"
+  ## @param dns.serviceAnnotations Additional annotations for the Service
+  serviceAnnotations: {}
+  ## @param dns.loadBalancerClass Kubernetes LoadBalancerClass to use.
+  ## Only applicable when serviceType is LoadBalancer
+  loadBalancerClass: ""
+
+  ## @param dns.replicaCount Number of replicas for the dns component
+  replicaCount: 1
+
+  ## @param dns.address Public IP address for the dnsmasq service. Prefer using dns.service.loadBalancerIP
+  address: ""
+
+  ## @param dns.resources CPU/Memory resource requests/limits for the dns component
+  resources: {}
+
+  ## @param dns.noDefaultConfig whether to override the default dnsmasq configuration instead of appending to it
+  noDefaultConfig: false
+
+  ## @param dns.servers List of DNS servers to use
+  servers:
+    - "8.8.8.8"
+
+  ## @param dns.customConfig Custom configuration for the dnsmasq service
+  # see https://github.com/tschaffter/docker-dnsmasq/blob/main/dnsmasq.conf.example
+  # or https://dnsmasq.org/docs/setup.html
+  customConfig: ""
