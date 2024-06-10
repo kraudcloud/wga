@@ -18,6 +18,7 @@ global:
 ## @param endpoint.annotations Additional annotations for the wireguard interface
 ## @param endpoint.labels Additional labels for the wireguard interface
 ## @param endpoint.resources CPU/Memory resource requests/limits for the wgap pod.
+## @param endpoint.privateKeySecretName secret name for the private key of the wireguard interface. Should contain a single `privateKey` entry
 ##
 endpoint:
   clientCIDR: ""
@@ -26,6 +27,7 @@ endpoint:
   logLevel: 0
   annotations: {}
   labels: {}
+  privateKeySecretName: ""
 
   ## @param endpoint.service.type Kubernetes Service type.
   ## @param endpoint.service.loadBalancerClass Kubernetes LoadBalancerClass to use
@@ -37,7 +39,7 @@ endpoint:
   service:
     type: "LoadBalancer"
     loadBalancerClass: ""
-    loadBalancerIP: "1.1.1.1"
+    loadBalancerIP: ""
     port: 51820
     annotations: {}
     labels: {}

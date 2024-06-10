@@ -73,4 +73,8 @@ spec:
         - name: endpoint
           secret:
             defaultMode: 420
-            secretName: endpoint
+            {{- if .Values.endpoint.privateKeySecretName }}
+            secretName: {{ .Values.endpoint.privateKeySecretName }}
+            {{- else }}
+            {{- fail "You must set endpoint.privateKeySecretName as a reference to a secret in the same namespace. It must contain a `privateKey` field with the Wireguard private key." }}
+            {{- end }}
