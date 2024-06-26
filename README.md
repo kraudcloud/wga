@@ -29,9 +29,10 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 | `endpoint.annotations`               | Additional annotations for the wireguard interface                                                                               | `{}`           |
 | `endpoint.labels`                    | Additional labels for the wireguard interface                                                                                    | `{}`           |
 | `endpoint.resources`                 | CPU/Memory resource requests/limits for the wgap pod.                                                                            | `{}`           |
+| `endpoint.privateKeySecretName`      | secret name for the private key of the wireguard interface. Should contain a single `privateKey` entry                           | `""`           |
 | `endpoint.service.type`              | Kubernetes Service type.                                                                                                         | `LoadBalancer` |
 | `endpoint.service.loadBalancerClass` | Kubernetes LoadBalancerClass to use                                                                                              | `""`           |
-| `endpoint.service.loadBalancerIP`    | Kubernetes LoadBalancerIP to use                                                                                                 | `1.1.1.1`      |
+| `endpoint.service.loadBalancerIP`    | Kubernetes LoadBalancerIP to use                                                                                                 | `""`           |
 | `endpoint.service.port`              | Kubernetes Service port                                                                                                          | `51820`        |
 | `endpoint.service.annotations`       | Additional annotations for the Service                                                                                           | `{}`           |
 | `endpoint.service.labels`            | Additional labels for the Service                                                                                                | `{}`           |
