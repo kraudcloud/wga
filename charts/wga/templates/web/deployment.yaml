@@ -58,3 +58,9 @@ spec:
             - name: ORIGIN
               value: "https://{{- .Values.ingress.hosts | first}}"
             {{- end }}
+            {{- if .Values.dns.enabled }}
+            - name: DNS_ADDRESS
+              value: {{ .Values.dns.address | quote }}
+            - name: DNS_PORT
+              value: {{ .Values.dns.port | quote }}
+            {{- end }}

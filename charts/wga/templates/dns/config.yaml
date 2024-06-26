@@ -1,0 +1,51 @@
+{{if .Values.dns.enabled}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wga.fullname" . }}-dnsmasq
+  labels:
+    {{- include "wga.labels" . | nindent 4 }}
+data:
+  dnsmasq.conf: |
+    {{- if not .Values.dns.noDefaultConfig }}
+    # Using dnsmasq only for DNS resolution, not its DHCP server.
+    no-dhcp-interface=eth0
+
+    # If you don't want dnsmasq to read /etc/hosts, uncomment the following line.
+    no-hosts
+
+    # Prevent dnsmasq to read /etc/resolv.conf or any other file, getting its
+    # servers from this file instead.
+    no-resolv
+
+    # Prevent dnsmasq to poll /etc/resolv.conf or other resolv files for changes and
+    # re-read them.
+    no-poll
+
+    # Uses the upstream nameserver in the order they are provided. If the first
+    # server doesn't reply, or can't answer, dnsmasq tries the next one and so on.
+    strict-order
+
+    # Prevent packets with malformed domain names from leaving the local network.
+    domain-needed
+
+    # Prevent packages with private IP addresses from leaving the local network.
+    bogus-priv
+
+    # Dnsmasq is not a DNSSEC validator, so it cannot perform the validation role of
+    # the recursive nameserver, but it can pass through the validation results from
+    # its own upstream nameservers. This option enables this behaviour.
+    proxy-dnssec
+
+    # Port to use for the dnsmasq service.
+    port={{ .Values.dns.port }}
+    {{ end }}
+
+    {{- range .Values.dns.servers}}
+    server={{ . }}
+    {{ end }}
+
+    {{- if .Values.dns.customConfig }}
+    {{- .Values.dns.customConfig | nindent 4 }}
+    {{ end }}
+{{end}}
