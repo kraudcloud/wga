@@ -1,0 +1,26 @@
+{{- if .Values.unbound.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wga-unbound
+  labels:
+    app: wga-unbound
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wga-unbound
+  template:
+    metadata:
+      labels:
+        app: wga-unbound
+    spec:
+      restartPolicy: Always
+      containers:
+        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.endpoint.image.name -}}:{{- default .Chart.AppVersion .Values.endpoint.image.tag }}"
+          name: unbound
+          command:
+            - /usr/sbin/unbound
+            - -dvvv
+{{- end}}

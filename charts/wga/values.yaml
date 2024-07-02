@@ -132,3 +132,7 @@ clusterClient:
   # limits:
   #   cpu: 50m
   #   memory: 128Mi
+
+unbound:
+  enabled: false
+  ip: null

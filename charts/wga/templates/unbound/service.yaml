@@ -1,0 +1,20 @@
+{{- if .Values.unbound.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wga-unbound
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: "{{ .Values.unbound.ip }}"
+spec:
+  externalTrafficPolicy: Local
+  type: LoadBalancer
+  loadBalancerIP: "{{ .Values.unbound.ip }}"
+  loadBalancerClass: wga
+  ports:
+  - port: 53
+    protocol: UDP
+    targetPort: 53
+  selector:
+    app: wga-unbound
+{{- end }}
