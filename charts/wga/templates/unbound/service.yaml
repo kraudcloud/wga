@@ -9,8 +9,10 @@ metadata:
 spec:
   externalTrafficPolicy: Local
   type: LoadBalancer
-  loadBalancerIP: "{{ .Values.unbound.ip }}"
   loadBalancerClass: wga
+  ipFamilies:
+  - IPv6
+  ipFamilyPolicy: SingleStack
   ports:
   - port: 53
     protocol: UDP
