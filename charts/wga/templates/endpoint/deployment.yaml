@@ -68,6 +68,11 @@ spec:
           volumeMounts:
             - mountPath: /etc/wga/endpoint/
               name: endpoint
+        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.endpoint.image.name -}}:{{- default .Chart.AppVersion .Values.endpoint.image.tag }}"
+          name: unbound
+          command:
+            - /usr/sbin/unbound
+            - dvvv
       restartPolicy: Always
       volumes:
         - name: endpoint
