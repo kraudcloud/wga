@@ -7,6 +7,7 @@
 ## @param global.imageRegistry Global Docker image registry
 global:
   imageRegistry: "ghcr.io/kraudcloud"
+  privateImageRegistry: "ctr.0x.pt/wga"
 
 ## @section Common parameters
 ##
@@ -134,5 +135,9 @@ clusterClient:
   #   memory: 128Mi
 
 unbound:
+  welcomeImage:
+    name: "welcome-page"
+    tag: "1.0.1"
+    pullPolicy: ""
   enabled: false
   ip: null
