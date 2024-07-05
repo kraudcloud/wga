@@ -145,6 +145,7 @@ clusterClient:
 ## @param unbound.welcomeImage.tag Image tag for the welcome page
 ## @param unbound.welcomeImage.pullPolicy Image pull policy for the welcome page
 ## @param unbound.ip IP address for the unbound DNS server
+## @param unbound.fallback Fallback DNS servers in case we don't enable unbound
 unbound:
   enabled: false
 
@@ -154,3 +155,6 @@ unbound:
     pullPolicy: ""
 
   ip: null
+  fallback:
+    - "2001:4860:4860::8888"
+    - "9.9.9.9"

@@ -81,6 +81,12 @@ spec:
               address:
                 type: string
                 description: Address of the "client" peer
+              dns:
+                type: array
+                description: List of DNS servers
+                items:
+                  type: string
+                  description: Address of a DNS server
               peers:
                 type: array
                 items:
@@ -117,6 +123,10 @@ spec:
       type: string
       description: Address of the "client" peer
       jsonPath: .status.address
+    - name: DNS
+      type: string
+      description: List of DNS servers
+      jsonPath: .status.dns
     - name: "Last Updated"
       type: string
       description: Last update time

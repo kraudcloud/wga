@@ -34,7 +34,7 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 | `endpoint.service.annotations`       | Additional annotations for the Service                                                                 | `{}`           |
 | `endpoint.service.labels`            | Additional labels for the Service                                                                      | `{}`           |
 | `endpoint.image.name`                | endpoint image name                                                                                    | `wga`          |
-| `endpoint.image.tag`                 | endpoint image tag                                                                                     | `""`           |
+| `endpoint.image.tag`                 | endpoint image tag                                                                                     | `0.6.0`        |
 | `endpoint.image.pullPolicy`          | Image pull policy                                                                                      | `""`           |
 
 ### Web dashboard
@@ -70,10 +70,11 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 
 ### DNS
 
-| Name                              | Description                            | Value          |
-| --------------------------------- | -------------------------------------- | -------------- |
-| `unbound.enabled`                 | Enable unbound DNS server              | `false`        |
-| `unbound.welcomeImage.name`       | Image name for the welcome page        | `welcome-page` |
-| `unbound.welcomeImage.tag`        | Image tag for the welcome page         | `1.0.1`        |
-| `unbound.welcomeImage.pullPolicy` | Image pull policy for the welcome page | `""`           |
-| `unbound.ip`                      | IP address for the unbound DNS server  | `nil`          |
+| Name                              | Description                                          | Value                                |
+| --------------------------------- | ---------------------------------------------------- | ------------------------------------ |
+| `unbound.enabled`                 | Enable unbound DNS server                            | `false`                              |
+| `unbound.welcomeImage.name`       | Image name for the welcome page                      | `welcome-page`                       |
+| `unbound.welcomeImage.tag`        | Image tag for the welcome page                       | `1.0.1`                              |
+| `unbound.welcomeImage.pullPolicy` | Image pull policy for the welcome page               | `""`                                 |
+| `unbound.ip`                      | IP address for the unbound DNS server                | `nil`                                |
+| `unbound.fallback`                | Fallback DNS servers in case we don't enable unbound | `["2001:4860:4860::8888","9.9.9.9"]` |

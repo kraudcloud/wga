@@ -26,12 +26,6 @@ import (
 
 func peerCmd() *cobra.Command {
 	rules := []string{}
-	dns := []net.IP{
-		// v4
-		net.ParseIP("1.1.1.1"),
-		// v6
-		net.ParseIP("2606:4700:4700::1111"),
-	}
 
 	cmd := &cobra.Command{
 		Use:     "peer",
@@ -62,7 +56,7 @@ func peerCmd() *cobra.Command {
 				exit("unable to create peer", "err", err)
 			}
 
-			FormatPeerIni(*peer, dns, pk, psk)
+			FormatPeerIni(*peer, peer.Status.DNS, pk, psk)
 		},
 		Aliases: []string{"new"},
 	}
@@ -213,7 +207,7 @@ func NewWGAPeer(ctx context.Context, name string, rules []string, keyset, pskset
 	return populatedPeer, nil
 }
 
-func FormatPeerIni(peer v1beta.WireguardAccessPeer, dns []net.IP, pk, psk wgtypes.Key) error {
+func FormatPeerIni(peer v1beta.WireguardAccessPeer, dns []string, pk, psk wgtypes.Key) error {
 	peers := []wgtypes.Peer{}
 	for _, peer := range peer.Status.Peers {
 		publicKey, err := wgtypes.ParseKey(peer.PublicKey)
