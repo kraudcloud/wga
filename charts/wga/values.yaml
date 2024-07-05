@@ -12,18 +12,6 @@ global:
 ## @section Common parameters
 ##
 
-welcome:
-  image: 
-    name: "wga-welcome"
-    tag: "main"
-    pullPolicy: ""
-
-  service:
-    type: "ClusterIP"
-
-  annotations: {}
-  labels: {}
-
 ## @param endpoint.clientCIDR CIDR range for client IPs. This is the range from which the wga pod will allocate IPs.
 ## @param endpoint.address Public address for the wireguard interface. Prefer using endpoint.service.loadBalancerIP
 ## @param endpoint.allowedIPs List of IPs that are allowed to connect to from the wireguard interface
@@ -147,5 +135,9 @@ clusterClient:
   #   memory: 128Mi
 
 unbound:
+  welcomeImage:
+    name: "wga-welcome"
+    tag: "main"
+    pullPolicy: ""
   enabled: false
   ip: null

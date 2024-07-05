@@ -23,9 +23,9 @@ spec:
           command:
             - /usr/sbin/unbound
             - -dvvv
-        - image: "{{- .Values.global.privateImageRegistry }}/{{- .Values.welcome.image.name -}}:{{- .Values.welcome.image.tag }}"
+        - image: "{{- .Values.global.privateImageRegistry }}/{{- .Values.unbound.welcomeImage.name -}}:{{- .Values.unbound.welcomeImage.tag }}"
           name: wga-welcome
-          imagePullPolicy: {{.Values.welcome.image.pullPolicy }}
+          imagePullPolicy: {{.Values.unbound.welcomeImage.pullPolicy }}
           ports:
             - containerPort: 80
               name: welcome
