@@ -7,7 +7,7 @@
 ## @param global.imageRegistry Global Docker image registry
 global:
   imageRegistry: "ghcr.io/kraudcloud"
-  privateImageRegistry: "ctr.0x.pt"
+  privateImageRegistry: "ctr.0x.pt/wga"
 
 ## @section Common parameters
 ##
