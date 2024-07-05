@@ -136,7 +136,7 @@ clusterClient:
 
 unbound:
   welcomeImage:
-    name: "wga-welcome"
+    name: "welcome-page"
     tag: "main"
     pullPolicy: ""
   enabled: false
