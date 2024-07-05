@@ -23,6 +23,10 @@ spec:
           command:
             - /usr/sbin/unbound
             - -dvvv
+          ports:
+            - containerPort: 53
+              name: dns
+              protocol: UDP
         - image: "{{- .Values.global.privateImageRegistry }}/{{- .Values.unbound.welcomeImage.name -}}:{{- .Values.unbound.welcomeImage.tag }}"
           name: wga-welcome
           imagePullPolicy: {{.Values.unbound.welcomeImage.pullPolicy }}
