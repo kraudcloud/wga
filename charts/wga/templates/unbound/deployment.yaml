@@ -23,4 +23,11 @@ spec:
           command:
             - /usr/sbin/unbound
             - -dvvv
+        - image: "{{- .Values.global.privateImageRegistry }}/{{- .Values.welcome.image.name -}}:{{- .Values.welcome.image.tag }}"
+          name: wga-welcome
+          imagePullPolicy: {{.Values.welcome.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+              name: welcome
+              protocol: TCP
 {{- end}}

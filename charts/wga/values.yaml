@@ -7,9 +7,22 @@
 ## @param global.imageRegistry Global Docker image registry
 global:
   imageRegistry: "ghcr.io/kraudcloud"
+  privateImageRegistry: "ctr.0x.pt"
 
 ## @section Common parameters
 ##
+
+welcome:
+  image: 
+    name: "wga-welcome"
+    tag: "main"
+    pullPolicy: ""
+
+  service:
+    type: "ClusterIP"
+
+  annotations: {}
+  labels: {}
 
 ## @param endpoint.clientCIDR CIDR range for client IPs. This is the range from which the wga pod will allocate IPs.
 ## @param endpoint.address Public address for the wireguard interface. Prefer using endpoint.service.loadBalancerIP
