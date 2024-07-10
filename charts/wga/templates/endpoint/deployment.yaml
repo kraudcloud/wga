@@ -49,7 +49,7 @@ spec:
             {{- if .Values.unbound.ip }}
               value: {{ .Values.unbound.ip }}
             {{- else }}
-              value: {{ .Values.unbound.fallback | join "," | quote}}
+              {{- fail "You must set endpoint.unbound.ip"}}
             {{- end }}
             - name: WGA_ALLOWED_IPS
               value: {{join "," .Values.endpoint.allowedIPs}}
