@@ -66,7 +66,14 @@ func main() {
 				serviceNets = append(serviceNets, *ipnet)
 			}
 
-			operator.RunWGA(cmd.Context(), clientConfig(), serviceNets, []net.IPNet{*peersNet}, serverAddr)
+			DNSServers := os.Getenv("WGA_DNS_ADDRESSES")
+			if DNSServers == "" {
+				slog.Error("WGA_DNS_ADDRESSES not set")
+				os.Exit(1)
+			}
+			dnsServers := strings.Split(DNSServers, ",")
+
+			operator.RunWGA(cmd.Context(), clientConfig(), serviceNets, []net.IPNet{*peersNet}, dnsServers, serverAddr)
 		},
 	}
 	rootCmd.AddCommand(serverCmd)

@@ -30,8 +30,7 @@ spec:
           imagePullPolicy: {{.Values.endpoint.image.pullPolicy }}
           {{- end }}
           name: wga-endpoint
-          args:
-            - ep
+          command: [wga, ep]
           ports:
             - containerPort: {{.Values.endpoint.service.port}}
               name: wireguard
@@ -46,6 +45,12 @@ spec:
             {{- fail "You must set either endpoint.address or endpoint.service.loadBalancerIP"}}
             {{- end }}
               value: {{default .Values.endpoint.address .Values.endpoint.service.loadBalancerIP }}
+            - name: WGA_DNS_ADDRESSES
+            {{- if .Values.unbound.ip }}
+              value: {{ .Values.unbound.ip }}
+            {{- else }}
+              {{- fail "You must set endpoint.unbound.ip"}}
+            {{- end }}
             - name: WGA_ALLOWED_IPS
               value: {{join "," .Values.endpoint.allowedIPs}}
               {{- if .Values.endpoint.logLevel }}

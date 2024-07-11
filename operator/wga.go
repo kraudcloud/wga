@@ -49,7 +49,7 @@ func init() {
 	v1beta.SchemeBuilder.AddToScheme(scheme.Scheme)
 }
 
-func RunWGA(ctx context.Context, config *rest.Config, serviceNets []net.IPNet, peerNets []net.IPNet, serverAddr string) {
+func RunWGA(ctx context.Context, config *rest.Config, serviceNets []net.IPNet, peerNets []net.IPNet, dnsServers []string, serverAddr string) {
 	mgr, err := manager.New(config, manager.Options{})
 	if err != nil {
 		slog.Error("unable to create new manager", "err", err)
@@ -59,7 +59,7 @@ func RunWGA(ctx context.Context, config *rest.Config, serviceNets []net.IPNet, p
 	log.SetLogger(logr.FromSlogHandler(slog.With("component", "wga-controller").Handler()))
 
 	registerLoadBalancerReconciler(mgr, serviceNets, slog.Default())
-	registerPeerReconciler(mgr, serviceNets, peerNets, serverAddr, slog.Default())
+	registerPeerReconciler(mgr, serviceNets, peerNets, dnsServers, serverAddr, slog.Default())
 
 	if err = mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
 		slog.Error("unable to set up health check", "err", err)
@@ -96,6 +96,7 @@ func registerPeerReconciler(
 	mgr manager.Manager,
 	servicesNets []net.IPNet,
 	clientsNets []net.IPNet,
+	dnsServers []string,
 	serverAddr string,
 	log *slog.Logger,
 ) {
@@ -112,6 +113,7 @@ func registerPeerReconciler(
 			serverAddr:   serverAddr,
 			clientsNets:  clientsNets,
 			servicesNets: servicesNets,
+			dnsServers:   dnsServers,
 			client:       mgr.GetClient(),
 			log:          log.With("component", "peer-reconciler"),
 		}))
@@ -151,6 +153,7 @@ type PeerReconciler struct {
 	serverAddr   string
 	clientsNets  []net.IPNet
 	servicesNets []net.IPNet
+	dnsServers   []string
 	client       client.Client
 	log          *slog.Logger
 }
@@ -172,6 +175,7 @@ func (r *PeerReconciler) Reconcile(ctx context.Context, peer *v1beta.WireguardAc
 	peer.Status = &v1beta.WireguardAccessPeerStatus{
 		LastUpdated: metav1.Now(),
 		Address:     sip.String(),
+		DNS:         r.dnsServers,
 		Peers: []v1beta.WireguardAccessPeerStatusPeer{
 			{
 				PublicKey:  WGConfig.PrivateKey.PublicKey().String(),

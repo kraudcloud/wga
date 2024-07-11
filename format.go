@@ -16,7 +16,7 @@ const WgFile = `{{- if .Name -}}
 [Interface]
 PrivateKey = {{ .PrivateKey }}
 Address = {{ .Address }}
-DNS = {{ joinIPs .DNS ", " }}
+DNS = {{ join .DNS ", " }}
 
 {{- range .Peers }}
 
@@ -35,11 +35,7 @@ PersistentKeepalive = {{ seconds .PersistentKeepaliveInterval }}
 `
 
 var funcs = template.FuncMap{
-	"joinIPs": func(ips []net.IP, sep string) string {
-		strs := make([]string, 0, len(ips))
-		for _, ip := range ips {
-			strs = append(strs, ip.String())
-		}
+	"join": func(strs []string, sep string) string {
 		return strings.Join(strs, sep)
 	},
 	"joinIPNets": func(ips []net.IPNet, sep string) string {
@@ -61,7 +57,7 @@ var wgFileTemplate = template.Must(template.New("wg-file").Funcs(funcs).Parse(Wg
 
 type ConfigFile struct {
 	Address *net.IPNet
-	DNS     []net.IP
+	DNS     []string
 	wgtypes.Device
 	Name string
 }

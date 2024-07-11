@@ -146,7 +146,7 @@ clusterClient:
 ## @param unbound.welcomeImage.pullPolicy Image pull policy for the welcome page
 ## @param unbound.ip IP address for the unbound DNS server
 unbound:
-  enabled: false
+  enabled: true
 
   welcomeImage:
     name: "welcome-page"

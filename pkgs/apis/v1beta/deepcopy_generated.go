@@ -100,6 +100,11 @@ func (in *WireguardAccessPeerSpec) DeepCopy() *WireguardAccessPeerSpec {
 func (in *WireguardAccessPeerStatus) DeepCopyInto(out *WireguardAccessPeerStatus) {
 	*out = *in
 	in.LastUpdated.DeepCopyInto(&out.LastUpdated)
+	if in.DNS != nil {
+		in, out := &in.DNS, &out.DNS
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Peers != nil {
 		in, out := &in.Peers, &out.Peers
 		*out = make([]WireguardAccessPeerStatusPeer, len(*in))

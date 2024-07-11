@@ -7,9 +7,11 @@ kubectl create secret generic wga-secret --from-literal=privateKey=$(head -c 32 
 
 helm uninstall wga
 helm install wga ./charts/wga \
+    --set endpoint.image.tag=latest \
+    --set endpoint.image.pullPolicy=Never \
     --set endpoint.privateKeySecretName=wga-secret \
     --set endpoint.address=192.168.1.10 \
     --set endpoint.clientCIDR=192.168.1.0/24 \
     --set endpoint.allowedIPs=192.168.1.0/24 \
     --set clusterClient.enable=true \
-    --set unbound.enabled=true
+    --set unbound.ip=192.168.1.53

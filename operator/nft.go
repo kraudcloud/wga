@@ -2,6 +2,8 @@ package operator
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -115,17 +117,28 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName s
 					continue
 				}
 
-				cmd := exec.CommandContext(ctx, "nft", "add", "rule", "netdev", "wga", deviceName,
-					"ip6", "saddr", snet.String(),
-					"ip6", "daddr", dnet.String(),
-					"counter", "accept", "comment", comment)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				err = cmd.Run()
-				if err != nil {
-					log.Error(err.Error(), "destination", dnet.String(), "peer", peer.Name)
+				if len(peer.Status.DNS) == 0 {
+					log.ErrorContext(ctx, "peer has no DNS", "peer", peer.Name)
 					continue
 				}
+
+				err = routingRule(ctx, table, chain, snet, dnet, comment)
+				if err != nil {
+					log.ErrorContext(ctx, "failed to add routing rule", "peer", peer.Name, "err", err)
+					continue
+				}
+				err = dnsRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+				if err != nil {
+					log.ErrorContext(ctx, "failed to add dns rule", "peer", peer.Name, "err", err)
+					continue
+				}
+				err = httpRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+				if err != nil {
+					log.ErrorContext(ctx, "failed to add http rule", "peer", peer.Name, "err", err)
+					continue
+				}
+
+				log.Debug("rules added")
 			}
 		}
 	}
@@ -207,4 +220,69 @@ func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table
 	}
 
 	return nil, nil
+}
+
+func dnsRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, DNS string, snet net.IPNet, comment string) error {
+	err := exec.CommandContext(
+		ctx, "nft", "add", "rule", "netdev", table.Name, chain.Name,
+		"ip6", "saddr", snet.String(),
+		"ip6", "daddr", DNS,
+		"udp", "dport", "53",
+		"counter",
+		"accept",
+		"comment", comment,
+	).Run()
+	if err != nil {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
+			return fmt.Errorf("nftables error: %s", string(exitError.Stderr))
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func httpRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, DNS string, snet net.IPNet, comment string) error {
+	err := exec.CommandContext(
+		ctx, "nft", "add", "rule", "netdev", table.Name, chain.Name,
+		"ip6", "saddr", snet.String(),
+		"ip6", "daddr", DNS,
+		"tcp", "dport", "{ 80, 443 }",
+		"counter",
+		"accept",
+		"comment", comment,
+	).Run()
+	if err != nil {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
+			return fmt.Errorf("nftables error: %s", string(exitError.Stderr))
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func routingRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, snet net.IPNet, dnet net.IPNet, comment string) error {
+	err := exec.CommandContext(
+		ctx, "nft", "add", "rule", "netdev", table.Name, chain.Name,
+		"ip6", "saddr", snet.String(),
+		"ip6", "daddr", dnet.String(),
+		"counter",
+		"accept",
+		"comment", comment,
+	).Run()
+	if err != nil {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
+			return fmt.Errorf("nftables error: %s", string(exitError.Stderr))
+		}
+
+		return err
+	}
+
+	return nil
 }
