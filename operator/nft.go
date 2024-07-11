@@ -2,6 +2,8 @@ package operator
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -10,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/google/nftables"
-	"github.com/google/nftables/expr"
 )
 
 func sysctl(ctx context.Context, log *slog.Logger) {
@@ -121,12 +122,19 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName s
 					continue
 				}
 
-				nft.AddRule(routingRule(table, chain, snet, dnet, comment))
-				nft.AddRule(dnsRule(table, chain, peer.Status.DNS[0], snet, comment))
-				nft.AddRule(httpRule(table, chain, peer.Status.DNS[0], snet, comment))
-				err = nft.Flush()
+				err = routingRule(ctx, table, chain, snet, dnet, comment)
 				if err != nil {
-					log.WarnContext(ctx, "error flushing nftables", "err", err)
+					log.ErrorContext(ctx, "failed to add routing rule", "peer", peer.Name, "err", err)
+					continue
+				}
+				err = dnsRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+				if err != nil {
+					log.ErrorContext(ctx, "failed to add dns rule", "peer", peer.Name, "err", err)
+					continue
+				}
+				err = httpRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+				if err != nil {
+					log.ErrorContext(ctx, "failed to add http rule", "peer", peer.Name, "err", err)
 					continue
 				}
 
@@ -214,188 +222,67 @@ func checkOrCreateWGAIngressChain(ctx context.Context, nft *nftables.Conn, table
 	return nil, nil
 }
 
-// dnsRule is equivalent to
-//
-//	nft add rule netdev <table_name> <chain_name> \
-//	    ip6 saddr <source_ip> \
-//	    ip6 daddr <dns_ip> \
-//	    meta l4proto udp \
-//	    udp dport 53 \
-//	    counter \
-//	    accept \
-//	    comment "<comment>"
-func dnsRule(table *nftables.Table, chain *nftables.Chain, DNS string, snet net.IPNet, comment string) *nftables.Rule {
-	return &nftables.Rule{
-		Table: table,
-		Chain: chain,
-		Exprs: []expr.Any{
-			// Match source IP
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseNetworkHeader,
-				Offset:       8,
-				Len:          16,
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     snet.IP,
-			},
-			// Match destination IP
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseNetworkHeader,
-				Offset:       24,
-				Len:          16,
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     net.ParseIP(DNS).To16(),
-			},
-			// Match UDP protocol
-			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 1},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte{17}, // 17 is UDP
-			},
-			// Match destination port 53
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseTransportHeader,
-				Offset:       2,
-				Len:          2,
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte{0, 53}, // Port 53 in big-endian
-			},
-			&expr.Counter{},
-			&expr.Verdict{Kind: expr.VerdictAccept},
-		},
-		UserData: []byte(comment),
+func dnsRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, DNS string, snet net.IPNet, comment string) error {
+	err := exec.CommandContext(
+		ctx, "nft", "add", "rule", "netdev", table.Name, chain.Name,
+		"ip6", "saddr", snet.String(),
+		"ip6", "daddr", DNS,
+		"udp", "dport", "53",
+		"counter",
+		"accept",
+		"comment", comment,
+	).Run()
+	if err != nil {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
+			return fmt.Errorf("nftables error: %s", string(exitError.Stderr))
+		}
+
+		return err
 	}
+
+	return nil
 }
 
-// httpRule is equivalent to
-//
-//	nft add rule netdev <table_name> <chain_name> \
-//	    ip6 saddr <source_ip> \
-//	    ip6 daddr <dns_ip> \
-//	    meta l4proto tcp \
-//	    tcp dport { 80, 443 } \
-//	    counter \
-//	    accept \
-//	    comment "<comment>"
-func httpRule(table *nftables.Table, chain *nftables.Chain, DNS string, snet net.IPNet, comment string) *nftables.Rule {
-	return &nftables.Rule{
-		Table: table,
-		Chain: chain,
-		Exprs: []expr.Any{
-			// Match source IP
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseNetworkHeader,
-				Offset:       8,
-				Len:          16,
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     snet.IP,
-			},
-			// Match destination IP
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseNetworkHeader,
-				Offset:       24,
-				Len:          16,
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     net.ParseIP(DNS).To16(),
-			},
-			// Match TCP protocol
-			&expr.Meta{Key: expr.MetaKeyL4PROTO, Register: 1},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte{6}, // 6 is TCP
-			},
-			// Match destination ports 80 or 443
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseTransportHeader,
-				Offset:       2,
-				Len:          2,
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte{0, 80}, // Port 80 in big-endian
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     []byte{1, 187}, // Port 443 in big-endian
-			},
-			&expr.Counter{},
-			&expr.Verdict{Kind: expr.VerdictAccept},
-		},
-		UserData: []byte(comment),
+func httpRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, DNS string, snet net.IPNet, comment string) error {
+	err := exec.CommandContext(
+		ctx, "nft", "add", "rule", "netdev", table.Name, chain.Name,
+		"ip6", "saddr", snet.String(),
+		"ip6", "daddr", DNS,
+		"tcp", "dport", "{ 80, 443 }",
+		"counter",
+		"accept",
+		"comment", comment,
+	).Run()
+	if err != nil {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
+			return fmt.Errorf("nftables error: %s", string(exitError.Stderr))
+		}
+
+		return err
 	}
+
+	return nil
 }
 
-// routingRule is equivalent to
-//
-//	nft add rule netdev <table_name> <chain_name> \
-//	    ip6 saddr <source_ip> \
-//	    ip6 daddr <destination_ip> \
-//	    counter \
-//	    accept \
-//	    comment "<comment>"
-func routingRule(table *nftables.Table, chain *nftables.Chain, snet net.IPNet, dnet net.IPNet, comment string) *nftables.Rule {
-	return &nftables.Rule{
-		Table: table,
-		Chain: chain,
-		Exprs: []expr.Any{
-			// Match source IP
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseNetworkHeader,
-				Offset:       8,  // Source address field in IPv6 header
-				Len:          16, // IPv6 address length
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     snet.IP,
-			},
+func routingRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, snet net.IPNet, dnet net.IPNet, comment string) error {
+	err := exec.CommandContext(
+		ctx, "nft", "add", "rule", "netdev", table.Name, chain.Name,
+		"ip6", "saddr", snet.String(),
+		"ip6", "daddr", dnet.String(),
+		"counter",
+		"accept",
+		"comment", comment,
+	).Run()
+	if err != nil {
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
+			return fmt.Errorf("nftables error: %s", string(exitError.Stderr))
+		}
 
-			// Match destination IP
-			&expr.Payload{
-				DestRegister: 1,
-				Base:         expr.PayloadBaseNetworkHeader,
-				Offset:       24, // Destination address field in IPv6 header
-				Len:          16, // IPv6 address length
-			},
-			&expr.Cmp{
-				Op:       expr.CmpOpEq,
-				Register: 1,
-				Data:     dnet.IP.To16(),
-			},
-
-			// Counter
-			&expr.Counter{},
-
-			// Accept
-			&expr.Verdict{
-				Kind: expr.VerdictAccept,
-			},
-		},
-		UserData: []byte(comment),
+		return err
 	}
+
+	return nil
 }
