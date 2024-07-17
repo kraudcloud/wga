@@ -29,6 +29,13 @@ Create chart name and version as used by the chart label.
 {{- end -}}
 
 {{/*
+Endpoint image
+*/}}
+{{- define "wga.endpointImage" -}}
+{{- printf "%s:%s" .Values.endpoint.image.name (coalesce .Values.endpoint.image.tag .Chart.AppVersion .Chart.Version)}}
+{{- end -}}
+
+{{/*
 Common labels
 */}}
 {{- define "wga.labels" -}}

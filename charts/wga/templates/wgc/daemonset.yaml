@@ -1,4 +1,4 @@
-{{ if .Values.clusterClient.enable }}
+{{ if .Values.clusterClient.enabled }}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -18,7 +18,7 @@ spec:
       serviceAccountName: {{include "wga.serviceAccountName" .}}
       hostNetwork: true
       containers:
-        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.endpoint.image.name -}}:{{- default .Chart.AppVersion .Values.endpoint.image.tag }}"
+        - image: "{{ include "wga.endpointImage" . }}"
           {{- if.Values.endpoint.image.pullPolicy }}
           imagePullPolicy: {{.Values.endpoint.image.pullPolicy }}
           {{- end }}

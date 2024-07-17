@@ -24,7 +24,7 @@ spec:
     spec:
       serviceAccountName: {{include "wga.serviceAccountName" .}}
       containers:
-        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.web.image.name -}}:{{- .Values.web.image.tag }}"
+        - image: "{{- .Values.web.image.name -}}:{{- .Values.web.image.tag }}"
           {{- if .Values.web.image.pullPolicy }}
           imagePullPolicy: {{.Values.web.image.pullPolicy }}
           {{- end }}

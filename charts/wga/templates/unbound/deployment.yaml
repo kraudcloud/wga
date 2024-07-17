@@ -18,7 +18,7 @@ spec:
     spec:
       restartPolicy: Always
       containers:
-        - image: "{{- .Values.global.imageRegistry }}/{{- .Values.endpoint.image.name -}}:{{- default .Chart.AppVersion .Values.endpoint.image.tag }}"
+        - image: "{{ include "wga.endpointImage" . }}"
           name: unbound
           command:
             - /usr/sbin/unbound
@@ -27,7 +27,7 @@ spec:
             - containerPort: 53
               name: dns
               protocol: UDP
-        - image: "{{- .Values.global.privateImageRegistry }}/{{- .Values.unbound.welcomeImage.name -}}:{{- .Values.unbound.welcomeImage.tag }}"
+        - image: "{{- .Values.unbound.welcomeImage.name -}}:{{- .Values.unbound.welcomeImage.tag }}"
           name: wga-welcome
           imagePullPolicy: {{.Values.unbound.welcomeImage.pullPolicy }}
           ports:

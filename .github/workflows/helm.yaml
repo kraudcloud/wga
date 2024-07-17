@@ -1,0 +1,34 @@
+name: Release Charts
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sed version
+        run: |
+          sed -i "s/appVersion:.*/appVersion: ${{ github.ref_name }}/" charts/wga/Chart.yaml
+          sed -i "s/version:.*/version: ${{ github.ref_name }}/" charts/wga/Chart.yaml
+
+      - name: Run chart-releaser
+        uses: Karitham/helm-oci-chart-releaser@b720e7e58d9e73b06f71f027ab61b54cb46b0964
+        with:
+          name: wga
+          tag: ${{ github.ref_name }}-helm
+          path: ./charts/wga
+          registry: ghcr.io
+          repository: kraudcloud
+          registry_username: kraudcloud
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
