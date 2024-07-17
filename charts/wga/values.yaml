@@ -142,3 +142,8 @@ unbound:
     pullPolicy: ""
 
   ip: null
+
+  ## @param unbound.service.annotations Additional annotations for the unbound DNS server
+  service:
+    annotations: {}
+    # metallb.universe.tf/loadBalancerIPs: null

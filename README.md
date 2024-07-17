@@ -63,10 +63,11 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 
 ### DNS
 
-| Name                              | Description                            | Value                        |
-| --------------------------------- | -------------------------------------- | ---------------------------- |
-| `unbound.enabled`                 | Enable unbound DNS server              | `true`                       |
-| `unbound.welcomeImage.name`       | Image name for the welcome page        | `ctr.0x.pt/wga/welcome-page` |
-| `unbound.welcomeImage.tag`        | Image tag for the welcome page         | `1.0.1`                      |
-| `unbound.welcomeImage.pullPolicy` | Image pull policy for the welcome page | `""`                         |
-| `unbound.ip`                      | IP address for the unbound DNS server  | `nil`                        |
+| Name                              | Description                                       | Value                        |
+| --------------------------------- | ------------------------------------------------- | ---------------------------- |
+| `unbound.enabled`                 | Enable unbound DNS server                         | `true`                       |
+| `unbound.welcomeImage.name`       | Image name for the welcome page                   | `ctr.0x.pt/wga/welcome-page` |
+| `unbound.welcomeImage.tag`        | Image tag for the welcome page                    | `1.0.1`                      |
+| `unbound.welcomeImage.pullPolicy` | Image pull policy for the welcome page            | `""`                         |
+| `unbound.ip`                      | IP address for the unbound DNS server             | `nil`                        |
+| `unbound.service.annotations`     | Additional annotations for the unbound DNS server | `{}`                         |
