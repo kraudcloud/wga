@@ -1,12 +1,11 @@
 suite: unbound
 templates:
   - unbound/service.yaml
+values:
+  - defaultValues.yaml
 tests:
   - it: should set custom annotations for unbound service
     set:
-      endpoint.address: 192.168.1.1
-      endpoint.privateKeySecretName: wga-key
-      unbound.ip: 192.168.1.53
       unbound.service.annotations:
         custom.annotation/test: "test-value"
         another.annotation/example: "example-value"
@@ -18,19 +17,12 @@ tests:
             another.annotation/example: "example-value"
 
   - it: should not any annotation by default
-    set:
-      endpoint.address: 192.168.1.1
-      endpoint.privateKeySecretName: wga-key
-      unbound.ip: 192.168.1.53
     asserts:
       - isNullOrEmpty:
           path: metadata.annotations
 
   - it: should set metallb annotation when specified
     set:
-      endpoint.address: 192.168.1.1
-      endpoint.privateKeySecretName: wga-key
-      unbound.ip: 192.168.1.53
       unbound.service.annotations:
         metallb.universe.tf/loadBalancerIPs: "192.168.1.53"
     asserts:
