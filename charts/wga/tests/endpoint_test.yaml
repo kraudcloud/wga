@@ -11,3 +11,24 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "ghcr.io/kraudcloud/wga:0.6.2"
+  - it: should render fine
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: '^ghcr.io/kraudcloud/wga:\d+.\d+.\d+$'
+  - it: resources are empty by default
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value: {}
+
+  - it: renders ip6 trailing colon correctly
+    set:
+      unbound:
+        ip: "dead:beef::"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: WGA_DNS_ADDRESSES
+            value: "dead:beef::"

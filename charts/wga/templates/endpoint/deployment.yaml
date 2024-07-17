@@ -47,7 +47,7 @@ spec:
               value: {{default .Values.endpoint.address .Values.endpoint.service.loadBalancerIP }}
             - name: WGA_DNS_ADDRESSES
             {{- if .Values.unbound.ip }}
-              value: {{ .Values.unbound.ip }}
+              value: {{ .Values.unbound.ip | quote }}
             {{- else }}
               {{- fail "You must set unbound.ip"}}
             {{- end }}
