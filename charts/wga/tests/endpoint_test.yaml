@@ -1,14 +1,12 @@
 suite: test default image tags
 templates:
   - endpoint/deployment.yaml
+values:
+  - defaultValues.yaml
 tests:
   - it: default image tags should equal to current appVersion
     chart:
       appVersion: 0.6.2
-    set:
-      endpoint.address: 192.168.1.1
-      endpoint.privateKeySecretName: wga-key
-      unbound.ip: 192.168.1.53
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image

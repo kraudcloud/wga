@@ -8,4 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: d3adb5/helm-unittest-action@v2
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install helm unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.5.1
+      - name: Run unittest
+        run: helm unittest charts/wga
