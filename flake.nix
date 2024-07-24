@@ -10,10 +10,6 @@
     goVersion = 22; # Change this to update the whole stack
     overlays = [
       (final: prev: {go = prev."go_1_${toString goVersion}";})
-      (final: prev: {
-        kubernetes-code-generator = prev.kubernetes-code-generator.overrideAttrs (oldAttrs: {
-        version = "0.30.1";
-      });})
     ];
     supportedSystems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     forEachSupportedSystem = f:
@@ -22,7 +18,20 @@
           pkgs = import nixpkgs {inherit overlays system;};
         });
   in {
-    devShells = forEachSupportedSystem ({pkgs}: {
+    devShells = forEachSupportedSystem ({pkgs}: let
+      code-generator = pkgs.buildGoModule rec {
+        pname = "code-generator";
+        version = "0.30.3";
+        src = pkgs.fetchFromGitHub {
+          owner = "kubernetes";
+          repo = pname;
+          rev = "v${version}";
+          hash = "sha256-GC8L/s+pMx07BgM3XbnJqNaKnprUM3BCHbn0WvRCEME=";
+        };
+        ldflags = ["-s" "-w"];
+        vendorHash = "sha256-kN8qFinFMQ739cxko8uR/AaGjYsqAT9iBLsDY149wwI=";
+      };
+    in {
       default = pkgs.mkShell {
         packages = with pkgs; [
           go
@@ -32,7 +41,7 @@
           kubernetes-helm
           minikube
           kind
-          kubernetes-code-generator
+          code-generator
           helm-ls
           knixpkgs.packages.${system}.helm-readme-generator
         ];
