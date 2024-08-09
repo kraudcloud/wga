@@ -40,6 +40,8 @@ func nftInit() {
 	}
 }
 
+//TODO: this doesnt scale and should be replaced with a map
+
 func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName string) {
 	ruleNameToDestinations := make(map[string][]net.IPNet)
 	for _, rr := range config.Rules {
@@ -96,16 +98,62 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName s
 			continue
 		}
 
-		snet := net.IPNet{
-			IP:   net.ParseIP(peer.Status.Address),
-			Mask: net.CIDRMask(128, 128),
+		if len(peer.Status.Addresses) == 0 {
+			peer.Status.Addresses = []string{peer.Status.Address}
 		}
 
-		for _, name := range peer.Spec.AccessRules {
-			for _, dnet := range ruleNameToDestinations[name] {
+		for _, addr := range peer.Status.Addresses {
 
-				comment := "r" + strip(snet.String()+dnet.String())
+			isV6 := true
+			ip := net.ParseIP(addr)
+			mask := net.CIDRMask(128, 128)
+			if ip.To4() == nil {
+				mask = net.CIDRMask(128, 128)
+				isV6 = true
+			} else {
+				mask = net.CIDRMask(32, 32)
+				isV6 = false
+			}
 
+			snet := net.IPNet{
+				IP:   ip,
+				Mask: mask,
+			}
+
+			for _, name := range peer.Spec.AccessRules {
+				for _, dnet := range ruleNameToDestinations[name] {
+
+					comment := "r" + strip(snet.String()+dnet.String())
+
+					exists := false
+					for ud := range ruleMap {
+						if strings.Contains(ud, comment) {
+							delete(ruleMap, ud)
+							exists = true
+						}
+					}
+					if exists {
+						continue
+					}
+
+					dnetIs6 := dnet.IP.To4() == nil
+					if isV6 != dnetIs6 {
+						continue
+					}
+
+					err = routingRule(ctx, table, chain, isV6, snet, dnet, comment)
+					if err != nil {
+						log.ErrorContext(ctx, "failed to add routing rule", "peer", peer.Name, "err", err)
+						continue
+					}
+
+					log.Debug("rules added")
+				}
+			}
+
+			if isV6 && len(peer.Status.DNS) > 0 {
+
+				comment := "r" + strip(snet.String()+peer.Status.DNS[0])
 				exists := false
 				for ud := range ruleMap {
 					if strings.Contains(ud, comment) {
@@ -113,32 +161,18 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName s
 						exists = true
 					}
 				}
-				if exists {
-					continue
+				if !exists {
+					err = dnsRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+					if err != nil {
+						log.ErrorContext(ctx, "failed to add dns rule", "peer", peer.Name, "err", err)
+						continue
+					}
+					err = httpRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+					if err != nil {
+						log.ErrorContext(ctx, "failed to add http rule", "peer", peer.Name, "err", err)
+						continue
+					}
 				}
-
-				if len(peer.Status.DNS) == 0 {
-					log.ErrorContext(ctx, "peer has no DNS", "peer", peer.Name)
-					continue
-				}
-
-				err = routingRule(ctx, table, chain, snet, dnet, comment)
-				if err != nil {
-					log.ErrorContext(ctx, "failed to add routing rule", "peer", peer.Name, "err", err)
-					continue
-				}
-				err = dnsRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
-				if err != nil {
-					log.ErrorContext(ctx, "failed to add dns rule", "peer", peer.Name, "err", err)
-					continue
-				}
-				err = httpRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
-				if err != nil {
-					log.ErrorContext(ctx, "failed to add http rule", "peer", peer.Name, "err", err)
-					continue
-				}
-
-				log.Debug("rules added")
 			}
 		}
 	}
@@ -266,15 +300,28 @@ func httpRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain,
 	return nil
 }
 
-func routingRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, snet net.IPNet, dnet net.IPNet, comment string) error {
-	err := exec.CommandContext(
-		ctx, "nft", "add", "rule", "netdev", table.Name, chain.Name,
-		"ip6", "saddr", snet.String(),
-		"ip6", "daddr", dnet.String(),
+func routingRule(ctx context.Context, table *nftables.Table, chain *nftables.Chain, isV6 bool, snet net.IPNet, dnet net.IPNet, comment string) error {
+
+	ipp := "ip"
+	if isV6 {
+		ipp = "ip6"
+	}
+
+	args := []string{"add", "rule", "netdev", table.Name, chain.Name,
+		ipp, "saddr", snet.String(),
+		ipp, "daddr", dnet.String(),
 		"counter",
 		"accept",
 		"comment", comment,
-	).Run()
+	}
+
+	slog.Info("adding rule", "nft", args)
+
+	cmd := exec.CommandContext(ctx, "nft", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
 	if err != nil {
 		exitError := &exec.ExitError{}
 		if errors.As(err, &exitError) {
