@@ -25,8 +25,11 @@ spec:
     spec:
       serviceAccountName: {{include "wga.serviceAccountName" .}}
       containers:
+        {{- if .Values.endpoint.extraContainers }}
+        {{- toYaml .Values.endpoint.extraContainers | nindent 8 }}
+        {{- end }}
         - image: {{ include "wga.endpointImage" . }}
-          {{- if.Values.endpoint.image.pullPolicy }}
+          {{- if .Values.endpoint.image.pullPolicy }}
           imagePullPolicy: {{.Values.endpoint.image.pullPolicy }}
           {{- end }}
           name: wga-endpoint
@@ -75,6 +78,9 @@ spec:
               name: endpoint
       restartPolicy: Always
       volumes:
+        {{- if .Values.endpoint.extraVolumes }}
+        {{- toYaml .Values.endpoint.extraVolumes | nindent 8 }}
+        {{- end }}
         - name: endpoint
           secret:
             defaultMode: 420
