@@ -40,6 +40,8 @@ func nftInit() {
 	}
 }
 
+//TODO: this doesnt scale and should be replaced with a map
+
 func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName string) {
 	ruleNameToDestinations := make(map[string][]net.IPNet)
 	for _, rr := range config.Rules {
@@ -96,49 +98,64 @@ func nftSync(ctx context.Context, log *slog.Logger, config *Config, deviceName s
 			continue
 		}
 
-		snet := net.IPNet{
-			IP:   net.ParseIP(peer.Status.Address),
-			Mask: net.CIDRMask(128, 128),
+		if len(peer.Status.Addresses) == 0 {
+			peer.Status.Addresses = []string{peer.Status.Address}
 		}
 
-		for _, name := range peer.Spec.AccessRules {
-			for _, dnet := range ruleNameToDestinations[name] {
+		for _, addr := range peer.Status.Addresses {
 
-				comment := "r" + strip(snet.String()+dnet.String())
+			ip := net.ParseIP(addr)
+			mask := net.CIDRMask(128, 128)
+			if ip.To4() == nil {
+				mask = net.CIDRMask(128, 128)
+			} else {
+				mask = net.CIDRMask(32, 32)
+			}
 
-				exists := false
-				for ud := range ruleMap {
-					if strings.Contains(ud, comment) {
-						delete(ruleMap, ud)
-						exists = true
+			snet := net.IPNet{
+				IP:   ip,
+				Mask: mask,
+			}
+
+			for _, name := range peer.Spec.AccessRules {
+				for _, dnet := range ruleNameToDestinations[name] {
+
+					comment := "r" + strip(snet.String()+dnet.String())
+
+					exists := false
+					for ud := range ruleMap {
+						if strings.Contains(ud, comment) {
+							delete(ruleMap, ud)
+							exists = true
+						}
 					}
-				}
-				if exists {
-					continue
-				}
+					if exists {
+						continue
+					}
 
-				if len(peer.Status.DNS) == 0 {
-					log.ErrorContext(ctx, "peer has no DNS", "peer", peer.Name)
-					continue
-				}
+					if len(peer.Status.DNS) == 0 {
+						log.ErrorContext(ctx, "peer has no DNS", "peer", peer.Name)
+						continue
+					}
 
-				err = routingRule(ctx, table, chain, snet, dnet, comment)
-				if err != nil {
-					log.ErrorContext(ctx, "failed to add routing rule", "peer", peer.Name, "err", err)
-					continue
-				}
-				err = dnsRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
-				if err != nil {
-					log.ErrorContext(ctx, "failed to add dns rule", "peer", peer.Name, "err", err)
-					continue
-				}
-				err = httpRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
-				if err != nil {
-					log.ErrorContext(ctx, "failed to add http rule", "peer", peer.Name, "err", err)
-					continue
-				}
+					err = routingRule(ctx, table, chain, snet, dnet, comment)
+					if err != nil {
+						log.ErrorContext(ctx, "failed to add routing rule", "peer", peer.Name, "err", err)
+						continue
+					}
+					err = dnsRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+					if err != nil {
+						log.ErrorContext(ctx, "failed to add dns rule", "peer", peer.Name, "err", err)
+						continue
+					}
+					err = httpRule(ctx, table, chain, peer.Status.DNS[0], snet, comment)
+					if err != nil {
+						log.ErrorContext(ctx, "failed to add http rule", "peer", peer.Name, "err", err)
+						continue
+					}
 
-				log.Debug("rules added")
+					log.Debug("rules added")
+				}
 			}
 		}
 	}
