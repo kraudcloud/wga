@@ -78,9 +78,14 @@ spec:
                 type: string
                 description: Last update time
                 format: date-time
+              addresses:
+                type: array
+                items:
+                  type: string
+                description: Address of the "client" peer
               address:
                 type: string
-                description: Address of the "client" peer
+                description: "Deprecated: Address of the client peer"
               dns:
                 type: array
                 description: List of DNS servers
@@ -122,7 +127,7 @@ spec:
     - name: Address
       type: string
       description: Address of the "client" peer
-      jsonPath: .status.address
+      jsonPath: .status.addresses
     - name: DNS
       type: string
       description: List of DNS servers

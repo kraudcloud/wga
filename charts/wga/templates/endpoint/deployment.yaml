@@ -25,9 +25,6 @@ spec:
     spec:
       serviceAccountName: {{include "wga.serviceAccountName" .}}
       containers:
-        {{- if .Values.endpoint.extraContainers }}
-        {{- toYaml .Values.endpoint.extraContainers | nindent 8 }}
-        {{- end }}
         - image: {{ include "wga.endpointImage" . }}
           {{- if .Values.endpoint.image.pullPolicy }}
           imagePullPolicy: {{.Values.endpoint.image.pullPolicy }}
@@ -76,11 +73,11 @@ spec:
           volumeMounts:
             - mountPath: /etc/wga/endpoint/
               name: endpoint
+        {{- if .Values.endpoint.extraContainers }}
+        {{- toYaml .Values.endpoint.extraContainers | nindent 8 }}
+        {{- end }}
       restartPolicy: Always
       volumes:
-        {{- if .Values.endpoint.extraVolumes }}
-        {{- toYaml .Values.endpoint.extraVolumes | nindent 8 }}
-        {{- end }}
         - name: endpoint
           secret:
             defaultMode: 420
@@ -89,3 +86,6 @@ spec:
             {{- else }}
             {{- fail "You must set endpoint.privateKeySecretName as a reference to a secret in the same namespace. It must contain a `privateKey` field with the Wireguard private key." }}
             {{- end }}
+        {{- if .Values.endpoint.extraVolumes }}
+        {{- toYaml .Values.endpoint.extraVolumes | nindent 8 }}
+        {{- end }}
