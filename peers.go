@@ -106,7 +106,7 @@ func peerCmd() *cobra.Command {
 						PrivateKey: v1beta.WireguardClusterClientNodePrivateKey{
 							Value: ptr(pk.String()),
 						},
-						Address: peer.Status.Address,
+						Address: strings.Join(peer.Status.Addresses, ","),
 					}
 					return nil
 				})
@@ -246,16 +246,24 @@ func FormatPeerIni(peer v1beta.WireguardAccessPeer, dns []string, pk, psk wgtype
 		})
 	}
 
-	ip := net.ParseIP(peer.Status.Address)
+	ips := ""
+	for _, ip := range peer.Status.Addresses {
+		ip := net.ParseIP(ip)
+		if len(ips) > 0 {
+			ips += ","
+		}
+		ipn := net.IPNet{
+			IP:   ip,
+			Mask: operator.FullMask(ip),
+		}
+		ips += ipn.String()
+	}
 
 	oubuf := &strings.Builder{}
 	err := Format(oubuf, ConfigFile{
-		Name: peer.Name,
-		Address: &net.IPNet{
-			IP:   ip,
-			Mask: operator.FullMask(ip),
-		},
-		DNS: dns,
+		Name:    peer.Name,
+		Address: ips,
+		DNS:     dns,
 		Device: wgtypes.Device{
 			Name:       peer.Name,
 			PrivateKey: pk,

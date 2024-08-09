@@ -100,7 +100,7 @@ func registerPeerReconciler(
 	serverAddr string,
 	log *slog.Logger,
 ) {
-	epInit(&clientsNets[0])
+	epInit(clientsNets)
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta.WireguardAccessPeer{}).
@@ -159,22 +159,66 @@ type PeerReconciler struct {
 }
 
 func (r *PeerReconciler) Reconcile(ctx context.Context, peer *v1beta.WireguardAccessPeer) (ctrl.Result, error) {
-	if peer.Status != nil && peer.Status.Address != "" {
+
+	if peer.Status != nil && len(peer.Status.Addresses) != 0 {
 		return ctrl.Result{}, nil
+	}
+
+	if peer.Status != nil && peer.Status.Address != "" {
+		r.log.Info("migrating peer status Address -> Addresses", "peer", peer.Name)
+
+		peer.Status.Addresses = []string{peer.Status.Address}
+
+		err := r.client.Update(ctx, peer)
+		if err != nil {
+			slog.Error(err.Error(), "peer", peer.Name)
+			return ctrl.Result{}, err
+		}
 	}
 
 	r.log.Info("setting peer status", "peer", peer.Name)
 
-	cnet := randPick(r.clientsNets)
-	sip, err := cidr.HostBig(&cnet, generateIndex(time.Now(), maskBits(cnet)))
-	if err != nil {
-		r.log.Error(err.Error(), "peer", peer.Name)
-		return ctrl.Result{}, err
+	clientNetsV4 := []net.IPNet{}
+	clientNetsV6 := []net.IPNet{}
+
+	for _, cnet := range r.clientsNets {
+		if cnet.IP.To4() != nil {
+			clientNetsV4 = append(clientNetsV4, cnet)
+		} else {
+			clientNetsV6 = append(clientNetsV6, cnet)
+		}
 	}
+
+	var addrs = []string{}
+
+	if len(clientNetsV6) != 0 {
+		cnet := randPick(clientNetsV6)
+		sip, err := cidr.HostBig(&cnet, generateIndex(time.Now(), maskBits(cnet)))
+		if err != nil {
+			r.log.Error(err.Error(), "peer", peer.Name)
+			return ctrl.Result{}, err
+		}
+		addrs = append(addrs, sip.String())
+	}
+
+	/* TODO this will conflict quickly
+
+	if len(clientNetsV4) != 0 {
+		cnet := randPick(clientNetsV4)
+		sip, err := cidr.HostBig(&cnet, generateIndex(time.Now(), maskBits(cnet)))
+		if err != nil {
+			r.log.Error(err.Error(), "peer", peer.Name)
+			return ctrl.Result{}, err
+		}
+		addrs = append(addrs, sip.String())
+	}
+
+	*/
 
 	peer.Status = &v1beta.WireguardAccessPeerStatus{
 		LastUpdated: metav1.Now(),
-		Address:     sip.String(),
+		Address:     addrs[0],
+		Addresses:   addrs,
 		DNS:         r.dnsServers,
 		Peers: []v1beta.WireguardAccessPeerStatusPeer{
 			{
@@ -185,7 +229,7 @@ func (r *PeerReconciler) Reconcile(ctx context.Context, peer *v1beta.WireguardAc
 		},
 	}
 
-	err = r.client.Update(ctx, peer)
+	err := r.client.Update(ctx, peer)
 	if err != nil {
 		slog.Error(err.Error(), "peer", peer.Name)
 		return ctrl.Result{}, err
@@ -255,9 +299,9 @@ func WGASync(client client.Client, log *slog.Logger) error {
 	return nil
 }
 
-func epInit(clientCIDR *net.IPNet) {
+func epInit(clientCIDRs []net.IPNet) {
 	WGInitOnce.Do(func() {
-		if err := wgaInit(clientCIDR); err != nil {
+		if err := wgaInit(clientCIDRs); err != nil {
 			panic(err)
 		}
 	})
@@ -265,7 +309,7 @@ func epInit(clientCIDR *net.IPNet) {
 	NFTInitOnce.Do(nftInit)
 }
 
-func wgaInit(clientCIDR *net.IPNet) error {
+func wgaInit(clientCIDRs []net.IPNet) error {
 	slog.Info("create wg", "interface", DEVICENAME)
 
 	// delete old link
@@ -313,12 +357,15 @@ func wgaInit(clientCIDR *net.IPNet) error {
 		return fmt.Errorf("link up: %w", err)
 	}
 
-	err = netlink.RouteAdd(&netlink.Route{
-		LinkIndex: link.Attrs().Index,
-		Dst:       clientCIDR,
-	})
-	if err != nil {
-		return fmt.Errorf("cannot add route: %w", err)
+	for _, clientCIDR := range clientCIDRs {
+		err = netlink.RouteAdd(&netlink.Route{
+			LinkIndex: link.Attrs().Index,
+			Dst:       &clientCIDR,
+		})
+
+		if err != nil {
+			return fmt.Errorf("cannot add route: %w", err)
+		}
 	}
 
 	return nil
@@ -332,10 +379,34 @@ func wgaSync(log *slog.Logger, config *Config) error {
 			continue
 		}
 
-		log.Info("syncing peer", "peer", peer.Name, "address", peer.Status.Address)
-		snet := net.IPNet{
-			IP:   net.ParseIP(peer.Status.Address),
-			Mask: net.CIDRMask(128, 128),
+		if len(peer.Status.Addresses) == 0 {
+			peer.Status.Addresses = []string{peer.Status.Address}
+		}
+
+		log.Info("syncing peer", "peer", peer.Name, "address", peer.Status.Addresses)
+
+		var allowedIPs []net.IPNet
+		for _, addr := range peer.Status.Addresses {
+
+			ip := net.ParseIP(addr)
+			if ip == nil {
+				log.Error("invalid ip", "ip", addr, "peer", peer.Name)
+				continue
+			}
+
+			var mask net.IPMask
+			if ip.To4() == nil {
+				mask = net.CIDRMask(128, 128)
+			} else {
+				mask = net.CIDRMask(32, 32)
+			}
+
+			snet := net.IPNet{
+				IP:   ip,
+				Mask: mask,
+			}
+
+			allowedIPs = append(allowedIPs, snet)
 		}
 
 		var psk wgtypes.Key
@@ -360,7 +431,7 @@ func wgaSync(log *slog.Logger, config *Config) error {
 			ReplaceAllowedIPs:           true,
 			PresharedKey:                &psk,
 			PublicKey:                   pub,
-			AllowedIPs:                  []net.IPNet{snet},
+			AllowedIPs:                  allowedIPs,
 		}
 
 		shouldPeers[pub.String()] = pc

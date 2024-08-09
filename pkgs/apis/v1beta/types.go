@@ -39,10 +39,12 @@ type WireguardAccessPeerSpec struct {
 
 type WireguardAccessPeerStatus struct {
 	//+optional
-	LastUpdated metav1.Time                     `yaml:"lastUpdated,omitempty" json:"lastUpdated,omitempty"`
-	Address     string                          `yaml:"address" json:"address"`
-	DNS         []string                        `yaml:"dns" json:"dns"`
-	Peers       []WireguardAccessPeerStatusPeer `yaml:"peers" json:"peers"`
+	LastUpdated metav1.Time `yaml:"lastUpdated,omitempty" json:"lastUpdated,omitempty"`
+	//+deprecated
+	Address   string                          `yaml:"address" json:"address"`
+	Addresses []string                        `yaml:"addresses" json:"addresses"`
+	DNS       []string                        `yaml:"dns" json:"dns"`
+	Peers     []WireguardAccessPeerStatusPeer `yaml:"peers" json:"peers"`
 }
 
 type WireguardAccessPeerStatusPeer struct {

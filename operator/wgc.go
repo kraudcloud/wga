@@ -1,7 +1,6 @@
 package operator
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
@@ -510,5 +509,9 @@ func wgcSync(log *slog.Logger, wgc []wgPeer) error {
 }
 
 func FullMask(ip net.IP) net.IPMask {
-	return net.IPMask(bytes.Repeat([]byte{0xff}, len(ip)))
+	if ip.To4() != nil {
+		return net.CIDRMask(32, 32)
+	} else {
+		return net.CIDRMask(128, 128)
+	}
 }

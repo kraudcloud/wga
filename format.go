@@ -56,7 +56,7 @@ var funcs = template.FuncMap{
 var wgFileTemplate = template.Must(template.New("wg-file").Funcs(funcs).Parse(WgFile))
 
 type ConfigFile struct {
-	Address *net.IPNet
+	Address string
 	DNS     []string
 	wgtypes.Device
 	Name string
