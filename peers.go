@@ -247,6 +247,9 @@ func FormatPeerIni(peer v1beta.WireguardAccessPeer, dns []string, pk, psk wgtype
 	}
 
 	ips := ""
+	if len(peer.Status.Addresses) == 0 {
+		peer.Status.Addresses = []string{peer.Status.Address}
+	}
 	for _, ip := range peer.Status.Addresses {
 		ip := net.ParseIP(ip)
 		if len(ips) > 0 {
