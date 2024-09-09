@@ -32,27 +32,28 @@ Readme generated with [readme-generator-for-helm](https://github.com/bitnami/rea
 
 ### Web dashboard
 
-| Name                    | Description                                                                                                                      | Value                             |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `web.image.name`        | Image name for the web component                                                                                                 | `ghcr.io/kraudcloud/wga-frontend` |
-| `web.image.tag`         | Image tag for the web component                                                                                                  | `main`                            |
-| `web.image.pullPolicy`  | Image pull policy for the web component                                                                                          | `""`                              |
-| `web.resources`         | CPU/Memory resource requests/limits for the web component                                                                        | `{}`                              |
-| `web.authId`            | Authentik ID for the web component                                                                                               | `""`                              |
-| `web.authSecret`        | Authentik secret for the web component                                                                                           | `""`                              |
-| `web.authIssuer`        | Authentik issuer endpoint                                                                                                        | `""`                              |
-| `web.authAuthorization` | Authentik authorization endpoint                                                                                                 | `""`                              |
-| `web.debug`             | Debug debug logging based on js-debug                                                                                            | `*`                               |
-| `web.service.type`      | Kubernetes Service type for the web component                                                                                    | `ClusterIP`                       |
-| `web.annotations`       | Additional annotations for the web component                                                                                     | `{}`                              |
-| `web.labels`            | Additional labels for the web component                                                                                          | `{}`                              |
-| `ingress.enabled`       | Enable ingress resource for the web component                                                                                    | `false`                           |
-| `ingress.annotations`   | Additional annotations for the Ingress resource                                                                                  | `{}`                              |
-| `ingress.hosts`         | Ingress hosts for the web component                                                                                              | `[]`                              |
-| `ingress.tls`           | Ingress TLS configuration                                                                                                        | `[]`                              |
-| `ingress.className`     | Ingress class name for the web component                                                                                         | `""`                              |
-| `serviceAccount.create` | Specifies whether a service account should be created. A service is required for the wga to communicate with the Kubernetes API. | `true`                            |
-| `serviceAccount.name`   | The name of the service account to use. If not set and create is true, a name is generated using the fullname template.          | `""`                              |
+| Name                    | Description                                                                                                                      | Value                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `web.enabled`           | Whether the web interface is enabled                                                                                             | `true`                       |
+| `web.image.name`        | Image name for the web component                                                                                                 | `ctr.0x.pt/wga/wga-frontend` |
+| `web.image.tag`         | Image tag for the web component                                                                                                  | `1.1.0`                      |
+| `web.image.pullPolicy`  | Image pull policy for the web component                                                                                          | `""`                         |
+| `web.resources`         | CPU/Memory resource requests/limits for the web component                                                                        | `{}`                         |
+| `web.authId`            | Authentik ID for the web component                                                                                               | `""`                         |
+| `web.authSecret`        | Authentik secret for the web component                                                                                           | `""`                         |
+| `web.authIssuer`        | Authentik issuer endpoint                                                                                                        | `""`                         |
+| `web.authAuthorization` | Authentik authorization endpoint                                                                                                 | `""`                         |
+| `web.debug`             | Debug debug logging based on js-debug                                                                                            | `*`                          |
+| `web.service.type`      | Kubernetes Service type for the web component                                                                                    | `ClusterIP`                  |
+| `web.annotations`       | Additional annotations for the web component                                                                                     | `{}`                         |
+| `web.labels`            | Additional labels for the web component                                                                                          | `{}`                         |
+| `ingress.enabled`       | Enable ingress resource for the web component                                                                                    | `false`                      |
+| `ingress.annotations`   | Additional annotations for the Ingress resource                                                                                  | `{}`                         |
+| `ingress.hosts`         | Ingress hosts for the web component                                                                                              | `[]`                         |
+| `ingress.tls`           | Ingress TLS configuration                                                                                                        | `[]`                         |
+| `ingress.className`     | Ingress class name for the web component                                                                                         | `""`                         |
+| `serviceAccount.create` | Specifies whether a service account should be created. A service is required for the wga to communicate with the Kubernetes API. | `true`                       |
+| `serviceAccount.name`   | The name of the service account to use. If not set and create is true, a name is generated using the fullname template.          | `""`                         |
 
 ### Cluster client
 

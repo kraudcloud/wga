@@ -1,0 +1,22 @@
+suite: test web deployment and service disabled
+templates:
+  - web/deployment.yaml
+  - web/service.yaml
+  - web/secret.yaml
+values:
+  - defaultValues.yaml
+tests:
+  - it: should not create web when web.enabled is false
+    set:
+      web:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: should create service and deployment when web.enabled is true
+    set:
+      web:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1

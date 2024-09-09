@@ -53,12 +53,14 @@ endpoint:
 
 ## @section Web dashboard
 
+## @param web.enabled Whether the web interface is enabled
 ## @param web.image.name Image name for the web component
 ## @param web.image.tag Image tag for the web component
 ## @param web.image.pullPolicy Image pull policy for the web component
 ## @param web.resources CPU/Memory resource requests/limits for the web component
 ##
 web:
+  enabled: true
   image:
     name: "ctr.0x.pt/wga/wga-frontend"
     tag: "1.1.0"
